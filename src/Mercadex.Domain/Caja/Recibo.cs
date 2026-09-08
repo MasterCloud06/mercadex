@@ -1,0 +1,121 @@
+﻿using Mercadex.Domain.Common;
+
+namespace Mercadex.Domain.Caja;
+
+public sealed class Recibo : Entity
+{
+    private readonly List<DetalleRecibo> _detalles = [];
+
+    private Recibo()
+    {
+    }
+
+    public Recibo(
+        long numero,
+        Guid unidadComercialId,
+        Guid pagoId,
+        DateTimeOffset fechaEmision,
+        IEnumerable<DetalleRecibo> detalles)
+    {
+        if (numero <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(numero),
+                "El número de recibo debe ser mayor a cero.");
+        }
+
+        if (unidadComercialId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "La unidad comercial es obligatoria.",
+                nameof(unidadComercialId));
+        }
+
+        if (pagoId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "El pago es obligatorio.",
+                nameof(pagoId));
+        }
+
+        ArgumentNullException.ThrowIfNull(detalles);
+
+        var lista = detalles.ToList();
+
+        if (lista.Count == 0)
+        {
+            throw new ArgumentException(
+                "El recibo debe contener al menos un detalle.",
+                nameof(detalles));
+        }
+
+        if (lista
+            .GroupBy(x => x.ObligacionId)
+            .Any(x => x.Count() > 1))
+        {
+            throw new InvalidOperationException(
+                "Una obligación no puede aparecer más de una vez en el recibo.");
+        }
+
+        Numero = numero;
+        UnidadComercialId = unidadComercialId;
+        PagoId = pagoId;
+        FechaEmision = fechaEmision;
+
+        Estado = EstadoRecibo.Emitido;
+
+        _detalles.AddRange(lista);
+    }
+
+    public long Numero { get; private set; }
+
+    public Guid UnidadComercialId { get; private set; }
+
+    public Guid PagoId { get; private set; }
+
+    public DateTimeOffset FechaEmision { get; private set; }
+
+    public EstadoRecibo Estado { get; private set; }
+
+    public string? MotivoAnulacion { get; private set; }
+
+    public DateTimeOffset? FechaAnulacion { get; private set; }
+
+    public IReadOnlyCollection<DetalleRecibo> Detalles =>
+        _detalles.AsReadOnly();
+
+    public decimal Total =>
+        _detalles.Sum(x => x.Monto);
+
+    public bool EstaAnulado =>
+        Estado == EstadoRecibo.Anulado;
+
+    public void Anular(
+        string motivo,
+        DateTimeOffset fechaAnulacion)
+    {
+        if (Estado == EstadoRecibo.Anulado)
+        {
+            throw new InvalidOperationException(
+                "El recibo ya se encuentra anulado.");
+        }
+
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            throw new ArgumentException(
+                "El motivo de anulación es obligatorio.",
+                nameof(motivo));
+        }
+
+        if (fechaAnulacion < FechaEmision)
+        {
+            throw new ArgumentException(
+                "La fecha de anulación no puede ser anterior a la emisión.",
+                nameof(fechaAnulacion));
+        }
+
+        Estado = EstadoRecibo.Anulado;
+        MotivoAnulacion = motivo.Trim();
+        FechaAnulacion = fechaAnulacion;
+    }
+}

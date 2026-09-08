@@ -1,0 +1,6 @@
+@Mercadex.Api_HostAddress = http://localhost:5054
+
+GET {{Mercadex.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

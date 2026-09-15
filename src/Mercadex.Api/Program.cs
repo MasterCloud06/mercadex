@@ -1,4 +1,7 @@
-﻿using Mercadex.Infrastructure.Persistence;
+﻿using Mercadex.Application.Interfaces;
+using Mercadex.Application.Services;
+using Mercadex.Infrastructure.Persistence;
+using Mercadex.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,6 +23,12 @@ if (string.IsNullOrWhiteSpace(connectionString))
 builder.Services.AddDbContext<MercadexDbContext>(
     options =>
         options.UseNpgsql(connectionString));
+
+
+// Application + Infrastructure Services
+builder.Services.AddScoped<ISocioRepository, SocioRepository>();
+builder.Services.AddScoped<ISocioService, SocioService>();
+
 
 var app = builder.Build();
 

@@ -39,6 +39,8 @@ builder.Services.AddScoped<IObligacionService, ObligacionService>();
 builder.Services.AddScoped<IPagoRepository, PagoRepository>();
 builder.Services.AddScoped<IReciboRepository, ReciboRepository>();
 builder.Services.AddScoped<ICajaService, CajaService>();
+builder.Services.AddScoped<IReporteCajaRepository, ReporteCajaRepository>();
+builder.Services.AddScoped<IReporteCajaService, ReporteCajaService>();
 
 
 var app = builder.Build();

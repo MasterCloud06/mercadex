@@ -108,4 +108,43 @@ public async Task<bool> AnularAsync(
 
     return true;
 }
+public async Task<IEnumerable<ReciboConsultaDto>> GetAllAsync()
+{
+    return await _context.Recibos
+        .AsNoTracking()
+        .OrderByDescending(r => r.FechaEmision)
+        .Select(r => new ReciboConsultaDto(
+            r.Id,
+            r.Numero,
+            r.UnidadComercialId,
+            r.PagoId,
+            r.FechaEmision,
+            r.Estado.ToString(),
+            r.Total
+        ))
+        .ToListAsync();
+}
+
+
+public async Task<IEnumerable<ReciboConsultaDto>> GetByFechaAsync(
+    DateTimeOffset fecha)
+    {
+        var fechaConsulta = fecha.Date;
+
+        return await _context.Recibos
+            .AsNoTracking()
+            .Where(r =>
+                r.FechaEmision.Date == fechaConsulta)
+            .OrderByDescending(r => r.FechaEmision)
+            .Select(r => new ReciboConsultaDto(
+                r.Id,
+                r.Numero,
+                r.UnidadComercialId,
+                r.PagoId,
+                r.FechaEmision,
+                r.Estado.ToString(),
+                r.Total
+            ))
+            .ToListAsync();
+    }
 }

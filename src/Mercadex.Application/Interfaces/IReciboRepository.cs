@@ -12,4 +12,9 @@ public interface IReciboRepository
     Task<bool> AnularAsync(
         Guid id,
         string motivo);
+
+Task<IEnumerable<ReciboConsultaDto>> GetAllAsync();
+
+Task<IEnumerable<ReciboConsultaDto>> 
+    GetByFechaAsync(DateTimeOffset fecha);
 }

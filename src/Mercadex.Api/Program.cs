@@ -51,6 +51,9 @@ builder.Services.AddScoped<ICajaService, CajaService>();
 builder.Services.AddScoped<IConsultaCajaRepository, ConsultaCajaRepository>();
 builder.Services.AddScoped<ConsultaCajaService>();
 
+// Consulta Recibos
+builder.Services.AddScoped<IConsultaRecibosService, ConsultaRecibosService>();
+
 
 var app = builder.Build();
 

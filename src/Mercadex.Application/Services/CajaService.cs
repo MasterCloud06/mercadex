@@ -29,22 +29,52 @@ public sealed class CajaService : ICajaService
 
 
     public async Task<ReciboDto> GenerarReciboAsync(
-        CrearReciboDto dto)
+    CrearReciboDto dto)
+{
+    foreach (var detalle in dto.Detalles)
     {
-        var recibo = await _reciboRepository
-            .CrearAsync(dto);
-
-
-        foreach (var detalle in dto.Detalles)
-        {
+        var obligacion =
             await _obligacionRepository
-                .MarcarComoPagadaAsync(
+                .GetByIdAsync(
                     detalle.ObligacionId);
+
+
+        if (obligacion is null)
+        {
+            throw new InvalidOperationException(
+                $"No existe la obligación {detalle.ObligacionId}.");
         }
 
 
-        return recibo;
+        if (obligacion.Estado != "Pendiente")
+        {
+            throw new InvalidOperationException(
+                $"La obligación {detalle.ObligacionId} no está pendiente.");
+        }
+
+
+        if (obligacion.Monto != detalle.Monto)
+        {
+            throw new InvalidOperationException(
+                $"El monto de la obligación {detalle.ObligacionId} no coincide.");
+        }
     }
+
+
+    var recibo = await _reciboRepository
+        .CrearAsync(dto);
+
+
+    foreach (var detalle in dto.Detalles)
+    {
+        await _obligacionRepository
+            .MarcarComoPagadaAsync(
+                detalle.ObligacionId);
+    }
+
+
+    return recibo;
+}
 
 
     public async Task<bool> AnularReciboAsync(

@@ -66,4 +66,23 @@ public sealed class PagoRepository : IPagoRepository
             pago.Estado.ToString()
         );
     }
+
+
+    public async Task<bool> AnularAsync(
+        Guid id)
+    {
+        var pago = await _context.Pagos
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (pago is null)
+        {
+            return false;
+        }
+
+        pago.Anular();
+
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
 }

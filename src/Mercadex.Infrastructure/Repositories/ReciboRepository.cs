@@ -88,4 +88,24 @@ public sealed class ReciboRepository : IReciboRepository
                     d.PeriodoMes))
         );
     }
+public async Task<bool> AnularAsync(
+    Guid id,
+    string motivo)
+{
+    var recibo = await _context.Recibos
+        .FirstOrDefaultAsync(r => r.Id == id);
+
+    if (recibo is null)
+    {
+        return false;
+    }
+
+    recibo.Anular(
+        motivo,
+        DateTimeOffset.UtcNow);
+
+    await _context.SaveChangesAsync();
+
+    return true;
+}
 }

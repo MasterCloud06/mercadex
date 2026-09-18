@@ -27,24 +27,64 @@ public sealed class CajaService : ICajaService
         return _pagoRepository.CrearAsync(dto);
     }
 
+public async Task<ReciboDto> GenerarReciboAsync(
+    CrearReciboDto dto)
+{
+    var reciboExistente =
+        await _reciboRepository
+            .GetByPagoIdAsync(dto.PagoId);
 
-    public async Task<ReciboDto> GenerarReciboAsync(
-        CrearReciboDto dto)
+
+    if (reciboExistente is not null)
     {
-        var recibo = await _reciboRepository
-            .CrearAsync(dto);
+        throw new InvalidOperationException(
+            "El pago ya tiene un recibo generado.");
+    }
 
 
-        foreach (var detalle in dto.Detalles)
-        {
+    foreach (var detalle in dto.Detalles)
+    {
+        var obligacion =
             await _obligacionRepository
-                .MarcarComoPagadaAsync(
-                    detalle.ObligacionId);
+                .GetByIdAsync(detalle.ObligacionId);
+
+
+        if (obligacion is null)
+        {
+            throw new InvalidOperationException(
+                $"La obligación {detalle.ObligacionId} no existe.");
         }
 
 
-        return recibo;
+        if (obligacion.Estado != "Pendiente")
+        {
+            throw new InvalidOperationException(
+                $"La obligación {detalle.ObligacionId} no está pendiente.");
+        }
+
+
+        if (obligacion.Monto != detalle.Monto)
+        {
+            throw new InvalidOperationException(
+                $"El monto de la obligación {detalle.ObligacionId} no coincide.");
+        }
     }
+
+
+    var recibo = await _reciboRepository
+        .CrearAsync(dto);
+
+
+    foreach (var detalle in dto.Detalles)
+    {
+        await _obligacionRepository
+            .MarcarComoPagadaAsync(
+                detalle.ObligacionId);
+    }
+
+
+    return recibo;
+}
 
 
     public async Task<bool> AnularReciboAsync(

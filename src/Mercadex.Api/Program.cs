@@ -1,4 +1,5 @@
-﻿using Mercadex.Application.Interfaces;
+﻿using Mercadex.Api.Middleware;
+using Mercadex.Application.Interfaces;
 using Mercadex.Application.Services;
 using Mercadex.Infrastructure.Persistence;
 using Mercadex.Infrastructure.Repositories;
@@ -49,6 +50,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.MapControllers();
 

@@ -26,8 +26,19 @@ builder.Services.AddDbContext<MercadexDbContext>(
 
 
 // Application + Infrastructure Services
+
+// Socios
 builder.Services.AddScoped<ISocioRepository, SocioRepository>();
 builder.Services.AddScoped<ISocioService, SocioService>();
+
+// Obligaciones
+builder.Services.AddScoped<IObligacionRepository, ObligacionRepository>();
+builder.Services.AddScoped<IObligacionService, ObligacionService>();
+
+// Caja
+builder.Services.AddScoped<IPagoRepository, PagoRepository>();
+builder.Services.AddScoped<IReciboRepository, ReciboRepository>();
+builder.Services.AddScoped<ICajaService, CajaService>();
 
 
 var app = builder.Build();

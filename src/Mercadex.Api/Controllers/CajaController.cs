@@ -71,4 +71,20 @@ public sealed class CajaController : ControllerBase
 
         return Ok(recibo);
     }
+[HttpPut("recibos/{id:guid}/anular")]
+public async Task<IActionResult> AnularRecibo(
+    Guid id,
+    AnularReciboDto dto)
+{
+    var resultado = await _service.AnularReciboAsync(
+        id,
+        dto);
+
+    if (!resultado)
+    {
+        return NotFound();
+    }
+
+    return NoContent();
+}
 }

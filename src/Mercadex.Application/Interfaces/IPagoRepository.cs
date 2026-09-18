@@ -8,4 +8,7 @@ public interface IPagoRepository
 
     Task<PagoDto> CrearAsync(
         CrearPagoDto dto);
+
+    Task<bool> AnularAsync(
+        Guid id);
 }

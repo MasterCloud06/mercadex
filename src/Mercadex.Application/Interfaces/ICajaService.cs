@@ -9,4 +9,8 @@ public interface ICajaService
 
     Task<ReciboDto> GenerarReciboAsync(
     CrearReciboDto dto);
+
+Task<bool> AnularReciboAsync(
+    Guid reciboId,
+    AnularReciboDto dto);
 }

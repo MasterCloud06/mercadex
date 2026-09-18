@@ -10,6 +10,7 @@ public sealed class ReciboRepository : IReciboRepository
 {
     private readonly MercadexDbContext _context;
 
+
     public ReciboRepository(
         MercadexDbContext context)
     {
@@ -17,11 +18,39 @@ public sealed class ReciboRepository : IReciboRepository
     }
 
 
-    public async Task<ReciboDto?> GetByIdAsync(Guid id)
+    public async Task<ReciboDto?> GetByIdAsync(
+        Guid id)
     {
         return await _context.Recibos
             .AsNoTracking()
             .Where(r => r.Id == id)
+            .Select(r => new ReciboDto(
+                r.Id,
+                r.Numero,
+                r.UnidadComercialId,
+                r.PagoId,
+                r.FechaEmision,
+                r.Estado.ToString(),
+                r.Total,
+                r.Detalles.Select(d =>
+                    new DetalleReciboDto(
+                        d.ObligacionId,
+                        d.ConceptoCobroId,
+                        d.Concepto,
+                        d.Monto,
+                        d.PeriodoAnio,
+                        d.PeriodoMes))
+            ))
+            .FirstOrDefaultAsync();
+    }
+
+
+    public async Task<ReciboDto?> GetByPagoIdAsync(
+        Guid pagoId)
+    {
+        return await _context.Recibos
+            .AsNoTracking()
+            .Where(r => r.PagoId == pagoId)
             .Select(r => new ReciboDto(
                 r.Id,
                 r.Numero,
@@ -88,24 +117,30 @@ public sealed class ReciboRepository : IReciboRepository
                     d.PeriodoMes))
         );
     }
-public async Task<bool> AnularAsync(
-    Guid id,
-    string motivo)
-{
-    var recibo = await _context.Recibos
-        .FirstOrDefaultAsync(r => r.Id == id);
 
-    if (recibo is null)
+
+    public async Task<bool> AnularAsync(
+        Guid id,
+        string motivo)
     {
-        return false;
+        var recibo = await _context.Recibos
+            .FirstOrDefaultAsync(r => r.Id == id);
+
+
+        if (recibo is null)
+        {
+            return false;
+        }
+
+
+        recibo.Anular(
+            motivo,
+            DateTimeOffset.UtcNow);
+
+
+        await _context.SaveChangesAsync();
+
+
+        return true;
     }
-
-    recibo.Anular(
-        motivo,
-        DateTimeOffset.UtcNow);
-
-    await _context.SaveChangesAsync();
-
-    return true;
-}
 }

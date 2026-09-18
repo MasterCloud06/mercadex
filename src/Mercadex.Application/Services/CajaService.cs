@@ -31,6 +31,70 @@ public sealed class CajaService : ICajaService
     public async Task<ReciboDto> GenerarReciboAsync(
         CrearReciboDto dto)
     {
+        var reciboExistente =
+            await _reciboRepository
+                .GetByPagoIdAsync(dto.PagoId);
+
+
+        if (reciboExistente is not null)
+        {
+            throw new InvalidOperationException(
+                "El pago ya tiene un recibo generado.");
+        }
+
+
+        var pago =
+            await _pagoRepository
+                .GetByIdAsync(dto.PagoId);
+
+
+        if (pago is null)
+        {
+            throw new InvalidOperationException(
+                $"El pago {dto.PagoId} no existe.");
+        }
+
+
+        var totalDetalle = dto.Detalles
+            .Sum(d => d.Monto);
+
+
+        if (pago.Monto != totalDetalle)
+        {
+            throw new InvalidOperationException(
+                "El monto del pago no coincide con el total del recibo.");
+        }
+
+
+        foreach (var detalle in dto.Detalles)
+        {
+            var obligacion =
+                await _obligacionRepository
+                    .GetByIdAsync(detalle.ObligacionId);
+
+
+            if (obligacion is null)
+            {
+                throw new InvalidOperationException(
+                    $"La obligación {detalle.ObligacionId} no existe.");
+            }
+
+
+            if (obligacion.Estado != "Pendiente")
+            {
+                throw new InvalidOperationException(
+                    $"La obligación {detalle.ObligacionId} no está pendiente.");
+            }
+
+
+            if (obligacion.Monto != detalle.Monto)
+            {
+                throw new InvalidOperationException(
+                    $"El monto de la obligación {detalle.ObligacionId} no coincide.");
+            }
+        }
+
+
         var recibo = await _reciboRepository
             .CrearAsync(dto);
 
@@ -61,10 +125,11 @@ public sealed class CajaService : ICajaService
         }
 
 
-        var reciboAnulado = await _reciboRepository
-            .AnularAsync(
-                reciboId,
-                dto.Motivo);
+        var reciboAnulado =
+            await _reciboRepository
+                .AnularAsync(
+                    reciboId,
+                    dto.Motivo);
 
 
         if (!reciboAnulado)

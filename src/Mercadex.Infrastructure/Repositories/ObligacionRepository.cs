@@ -120,4 +120,18 @@ public sealed class ObligacionRepository : IObligacionRepository
 
         return true;
     }
+public async Task<bool> ExisteAsync(
+    Guid unidadComercialId,
+    Guid conceptoCobroId,
+    int periodoAnio,
+    int periodoMes)
+{
+    return await _context.Obligaciones
+        .AsNoTracking()
+        .AnyAsync(o =>
+            o.UnidadComercialId == unidadComercialId &&
+            o.ConceptoCobroId == conceptoCobroId &&
+            o.PeriodoAnio == periodoAnio &&
+            o.PeriodoMes == periodoMes);
+}
 }

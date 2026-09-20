@@ -8,6 +8,7 @@ public sealed class Obligacion : Entity
     {
     }
 
+
     public Obligacion(
         Guid unidadComercialId,
         Guid conceptoCobroId,
@@ -25,12 +26,14 @@ public sealed class Obligacion : Entity
                 nameof(unidadComercialId));
         }
 
+
         if (conceptoCobroId == Guid.Empty)
         {
             throw new ArgumentException(
                 "El concepto de cobro es obligatorio.",
                 nameof(conceptoCobroId));
         }
+
 
         if (monedaId == Guid.Empty)
         {
@@ -39,6 +42,7 @@ public sealed class Obligacion : Entity
                 nameof(monedaId));
         }
 
+
         if (monto <= 0)
         {
             throw new ArgumentOutOfRangeException(
@@ -46,29 +50,34 @@ public sealed class Obligacion : Entity
                 "El monto debe ser mayor a cero.");
         }
 
+
         if (fechaVencimiento.HasValue &&
             fechaVencimiento.Value < fechaEmision)
         {
             throw new ArgumentException(
-                "La fecha de vencimiento no puede ser anterior a la fecha de emisión.",
+                "La fecha de vencimiento no puede ser anterior a la emisión.",
                 nameof(fechaVencimiento));
         }
 
+
         if (periodoMes.HasValue &&
-            (periodoMes.Value < 1 || periodoMes.Value > 12))
+            (periodoMes.Value < 1 ||
+             periodoMes.Value > 12))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(periodoMes),
                 "El mes debe estar entre 1 y 12.");
         }
 
+
         if (periodoMes.HasValue &&
             !periodoAnio.HasValue)
         {
             throw new ArgumentException(
-                "Para especificar un mes también debe especificarse el año.",
+                "Si existe mes debe existir año.",
                 nameof(periodoAnio));
         }
+
 
         UnidadComercialId = unidadComercialId;
         ConceptoCobroId = conceptoCobroId;
@@ -85,47 +94,60 @@ public sealed class Obligacion : Entity
         Estado = EstadoObligacion.Pendiente;
     }
 
+
     public Guid UnidadComercialId { get; private set; }
+
 
     public Guid ConceptoCobroId { get; private set; }
 
+
     public Guid MonedaId { get; private set; }
+
 
     public decimal Monto { get; private set; }
 
+
     public DateOnly FechaEmision { get; private set; }
+
 
     public DateOnly? FechaVencimiento { get; private set; }
 
+
     public int? PeriodoAnio { get; private set; }
+
 
     public int? PeriodoMes { get; private set; }
 
+
     public EstadoObligacion Estado { get; private set; }
+
 
     public bool EstaPendiente =>
         Estado == EstadoObligacion.Pendiente;
 
+
     public bool EstaPagada =>
         Estado == EstadoObligacion.Pagada;
+
 
     public void MarcarComoPagada()
     {
         if (Estado != EstadoObligacion.Pendiente)
         {
             throw new InvalidOperationException(
-                "Solamente una obligación pendiente puede marcarse como pagada.");
+                "Solamente una obligación pendiente puede pagarse.");
         }
 
         Estado = EstadoObligacion.Pagada;
     }
+
 
     public void RestaurarComoPendiente()
     {
         if (Estado != EstadoObligacion.Pagada)
         {
             throw new InvalidOperationException(
-                "Solamente una obligación pagada puede restaurarse como pendiente.");
+                "Solamente una obligación pagada puede restaurarse.");
         }
 
         Estado = EstadoObligacion.Pendiente;

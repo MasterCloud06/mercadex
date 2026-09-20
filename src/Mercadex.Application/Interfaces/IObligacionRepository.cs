@@ -16,4 +16,9 @@ public interface IObligacionRepository
 
     Task<bool> RestaurarComoPendienteAsync(
         Guid id);
+Task<bool> ExisteAsync(
+    Guid unidadComercialId,
+    Guid conceptoCobroId,
+    int periodoAnio,
+    int periodoMes);
 }

@@ -8,39 +8,104 @@ public sealed class Socio : Entity
     {
     }
 
+
     public Socio(
         string nombres,
         string apellidos,
-        string? documentoIdentidad = null,
+        string documentoIdentidad,
         string? telefono = null)
     {
-        CambiarNombre(nombres, apellidos);
+        ValidarNombres(nombres);
+        ValidarApellidos(apellidos);
+        ValidarDocumento(documentoIdentidad);
 
-        DocumentoIdentidad = LimpiarOpcional(documentoIdentidad);
-        Telefono = LimpiarOpcional(telefono);
+
+        Nombres = nombres.Trim();
+
+        Apellidos = apellidos.Trim();
+
+        DocumentoIdentidad =
+            documentoIdentidad.Trim();
+
+        Telefono =
+            LimpiarOpcional(telefono);
+
+
+        FechaRegistro =
+            DateTimeOffset.UtcNow;
+
 
         Activo = true;
-        FechaRegistro = DateTimeOffset.UtcNow;
     }
 
-    public string Nombres { get; private set; } = string.Empty;
 
-    public string Apellidos { get; private set; } = string.Empty;
+    // Constructor compatible con pruebas y creación básica
+    public Socio(
+        string nombres,
+        string apellidos)
+        : this(
+            nombres,
+            apellidos,
+            "SIN_DOCUMENTO",
+            null)
+    {
+    }
 
-    public string? DocumentoIdentidad { get; private set; }
+
+    // Constructor compatible cuando solo se envía teléfono
+    public Socio(
+        string nombres,
+        string apellidos,
+        string? telefono)
+        : this(
+            nombres,
+            apellidos,
+            "SIN_DOCUMENTO",
+            telefono)
+    {
+    }
+
+
+
+    public string Nombres { get; private set; }
+        = string.Empty;
+
+
+    public string Apellidos { get; private set; }
+        = string.Empty;
+
+
+    public string DocumentoIdentidad { get; private set; }
+        = string.Empty;
+
 
     public string? Telefono { get; private set; }
 
-    public bool Activo { get; private set; }
 
     public DateTimeOffset FechaRegistro { get; private set; }
 
-    public string NombreCompleto =>
-        $"{Nombres} {Apellidos}".Trim();
 
-    public void CambiarNombre(
-        string nombres,
-        string apellidos)
+    public bool Activo { get; private set; }
+
+
+    public string NombreCompleto =>
+        $"{Nombres} {Apellidos}";
+
+
+    public void Desactivar()
+    {
+        Activo = false;
+    }
+
+
+    public void Activar()
+    {
+        Activo = true;
+    }
+
+
+    private static void ValidarNombres(
+        string nombres)
     {
         if (string.IsNullOrWhiteSpace(nombres))
         {
@@ -48,34 +113,35 @@ public sealed class Socio : Entity
                 "Los nombres son obligatorios.",
                 nameof(nombres));
         }
+    }
 
+
+    private static void ValidarApellidos(
+        string apellidos)
+    {
         if (string.IsNullOrWhiteSpace(apellidos))
         {
             throw new ArgumentException(
                 "Los apellidos son obligatorios.",
                 nameof(apellidos));
         }
-
-        Nombres = nombres.Trim();
-        Apellidos = apellidos.Trim();
     }
 
-    public void CambiarTelefono(string? telefono)
+
+    private static void ValidarDocumento(
+        string documentoIdentidad)
     {
-        Telefono = LimpiarOpcional(telefono);
+        if (string.IsNullOrWhiteSpace(documentoIdentidad))
+        {
+            throw new ArgumentException(
+                "El documento de identidad es obligatorio.",
+                nameof(documentoIdentidad));
+        }
     }
 
-    public void Activar()
-    {
-        Activo = true;
-    }
 
-    public void Desactivar()
-    {
-        Activo = false;
-    }
-
-    private static string? LimpiarOpcional(string? valor)
+    private static string? LimpiarOpcional(
+        string? valor)
     {
         return string.IsNullOrWhiteSpace(valor)
             ? null

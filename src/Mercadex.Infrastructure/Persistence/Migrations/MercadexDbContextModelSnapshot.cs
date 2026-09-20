@@ -256,6 +256,29 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.ToTable("obligaciones", (string)null);
                 });
 
+            modelBuilder.Entity("Mercadex.Domain.Comercial.AsignacionSocioCaseta", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Activa")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("FechaAsignacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SocioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UnidadComercialId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AsignacionesSocioCaseta");
+                });
+
             modelBuilder.Entity("Mercadex.Domain.Organizacion.AsignacionUnidadComercial", b =>
                 {
                     b.Property<Guid>("Id")

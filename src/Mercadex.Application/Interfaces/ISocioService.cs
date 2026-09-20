@@ -1,21 +1,16 @@
-using Mercadex.Application.DTOs;
+using Mercadex.Application.DTOs.Socios;
 
 namespace Mercadex.Application.Interfaces;
 
 public interface ISocioService
 {
-    Task<IEnumerable<SocioDto>> GetAllAsync();
+    Task<IReadOnlyList<SocioDto>> ObtenerAsync();
 
-    Task<SocioDto?> GetByIdAsync(
+
+    Task<SocioDto?> ObtenerPorIdAsync(
         Guid id);
+
 
     Task<SocioDto> CrearAsync(
         CrearSocioDto dto);
-
-    Task<SocioDto?> ActualizarAsync(
-        Guid id,
-        ActualizarSocioDto dto);
-
-    Task<bool> DesactivarAsync(
-        Guid id);
 }

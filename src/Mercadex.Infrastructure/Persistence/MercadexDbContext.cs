@@ -14,33 +14,46 @@ public sealed class MercadexDbContext : DbContext
     {
     }
 
-    public DbSet<Socio> Socios => Set<Socio>();
 
-    public DbSet<Pasillo> Pasillos => Set<Pasillo>();
+    public DbSet<Socio> Socios =>
+        Set<Socio>();
+
+
+    public DbSet<Pasillo> Pasillos =>
+        Set<Pasillo>();
+
 
     public DbSet<UnidadComercial> UnidadesComerciales =>
         Set<UnidadComercial>();
 
+
     public DbSet<AsignacionUnidadComercial> AsignacionesUnidades =>
         Set<AsignacionUnidadComercial>();
+
 
     public DbSet<ConceptoCobro> ConceptosCobro =>
         Set<ConceptoCobro>();
 
+
     public DbSet<Moneda> Monedas =>
         Set<Moneda>();
+
 
     public DbSet<Obligacion> Obligaciones =>
         Set<Obligacion>();
 
+
     public DbSet<Pago> Pagos =>
         Set<Pago>();
+
 
     public DbSet<Recibo> Recibos =>
         Set<Recibo>();
 
+
     public DbSet<DetalleRecibo> DetallesRecibo =>
         Set<DetalleRecibo>();
+
 
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)

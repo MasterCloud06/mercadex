@@ -48,6 +48,8 @@ builder.Services.AddScoped<
     IEstadisticaCajaService,
     EstadisticaCajaService>();
 
+builder.Services.AddScoped<ISocioRepository, SocioRepository>();
+builder.Services.AddScoped<SocioService>();
 
 var app = builder.Build();
 

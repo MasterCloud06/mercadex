@@ -1,4 +1,4 @@
-using Mercadex.Application.DTOs;
+using Mercadex.Application.DTOs.Socios;
 using Mercadex.Application.Interfaces;
 
 namespace Mercadex.Application.Services;
@@ -7,39 +7,30 @@ public sealed class SocioService : ISocioService
 {
     private readonly ISocioRepository _repository;
 
+
     public SocioService(
         ISocioRepository repository)
     {
         _repository = repository;
     }
 
-    public Task<IEnumerable<SocioDto>> GetAllAsync()
+
+    public async Task<IReadOnlyList<SocioDto>> ObtenerAsync()
     {
-        return _repository.GetAllAsync();
+        return await _repository.ObtenerAsync();
     }
 
-    public Task<SocioDto?> GetByIdAsync(
+
+    public async Task<SocioDto?> ObtenerPorIdAsync(
         Guid id)
     {
-        return _repository.GetByIdAsync(id);
+        return await _repository.ObtenerPorIdAsync(id);
     }
 
-    public Task<SocioDto> CrearAsync(
+
+    public async Task<SocioDto> CrearAsync(
         CrearSocioDto dto)
     {
-        return _repository.CrearAsync(dto);
-    }
-
-    public Task<SocioDto?> ActualizarAsync(
-        Guid id,
-        ActualizarSocioDto dto)
-    {
-        return _repository.ActualizarAsync(id, dto);
-    }
-
-    public Task<bool> DesactivarAsync(
-        Guid id)
-    {
-        return _repository.DesactivarAsync(id);
+        return await _repository.CrearAsync(dto);
     }
 }

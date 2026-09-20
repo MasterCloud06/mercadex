@@ -1,84 +1,57 @@
-using Mercadex.Application.DTOs;
-using Mercadex.Application.Interfaces;
+using Mercadex.Application.DTOs.Socios;
+using Mercadex.Application.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Mercadex.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/socios")]
 public sealed class SociosController : ControllerBase
 {
-    private readonly ISocioService _service;
+    private readonly SocioService _service;
 
-    public SociosController(ISocioService service)
+
+    public SociosController(
+        SocioService service)
     {
         _service = service;
     }
 
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<SocioDto>>> GetAll()
+    public async Task<IActionResult> Obtener()
     {
-        var socios = await _service.GetAllAsync();
-
-        return Ok(socios);
+        return Ok(
+            await _service.ObtenerAsync());
     }
 
 
-    [HttpGet("{id:guid}")]
-    public async Task<ActionResult<SocioDto>> GetById(Guid id)
+    [HttpGet("{id}")]
+    public async Task<IActionResult> ObtenerPorId(
+        Guid id)
     {
-        var socio = await _service.GetByIdAsync(id);
+        var socio =
+            await _service.ObtenerPorIdAsync(id);
+
 
         if (socio is null)
         {
             return NotFound();
         }
+
 
         return Ok(socio);
     }
 
 
     [HttpPost]
-    public async Task<ActionResult<SocioDto>> Crear(
+    public async Task<IActionResult> Crear(
         CrearSocioDto dto)
     {
-        var socio = await _service.CrearAsync(dto);
-
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = socio.Id },
-            socio);
-    }
+        var resultado =
+            await _service.CrearAsync(dto);
 
 
-    [HttpPut("{id:guid}")]
-    public async Task<ActionResult<SocioDto>> Actualizar(
-        Guid id,
-        ActualizarSocioDto dto)
-    {
-        var socio = await _service.ActualizarAsync(id, dto);
-
-        if (socio is null)
-        {
-            return NotFound();
-        }
-
-        return Ok(socio);
-    }
-
-
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Desactivar(
-        Guid id)
-    {
-        var eliminado = await _service.DesactivarAsync(id);
-
-        if (!eliminado)
-        {
-            return NotFound();
-        }
-
-        return NoContent();
+        return Ok(resultado);
     }
 }

@@ -10,9 +10,11 @@ builder.Services.AddControllers();
 
 builder.Services.AddOpenApi();
 
+
 var connectionString =
     builder.Configuration.GetConnectionString(
         "MercadexDatabase");
+
 
 if (string.IsNullOrWhiteSpace(connectionString))
 {
@@ -20,26 +22,61 @@ if (string.IsNullOrWhiteSpace(connectionString))
         "No se encontró la cadena de conexión MercadexDatabase.");
 }
 
+
 builder.Services.AddDbContext<MercadexDbContext>(
     options =>
         options.UseNpgsql(connectionString));
 
 
+// =====================================
 // Application + Infrastructure Services
+// =====================================
+
 
 // Socios
-builder.Services.AddScoped<ISocioRepository, SocioRepository>();
-builder.Services.AddScoped<ISocioService, SocioService>();
+builder.Services.AddScoped<
+    ISocioRepository,
+    SocioRepository>();
+
+builder.Services.AddScoped<
+    ISocioService,
+    SocioService>();
+
 
 // Obligaciones
-builder.Services.AddScoped<IObligacionRepository, ObligacionRepository>();
-builder.Services.AddScoped<IObligacionService, ObligacionService>();
+builder.Services.AddScoped<
+    IObligacionRepository,
+    ObligacionRepository>();
+
+builder.Services.AddScoped<
+    IObligacionService,
+    ObligacionService>();
+
+
+// Generador de Cobranza
+builder.Services.AddScoped<
+    IUnidadComercialRepository,
+    UnidadComercialRepository>();
+
+builder.Services.AddScoped<
+    GeneradorCobranzaService>();
+
 
 // Caja
-builder.Services.AddScoped<IPagoRepository, PagoRepository>();
-builder.Services.AddScoped<IReciboRepository, ReciboRepository>();
-builder.Services.AddScoped<ICajaService, CajaService>();
+builder.Services.AddScoped<
+    IPagoRepository,
+    PagoRepository>();
 
+builder.Services.AddScoped<
+    IReciboRepository,
+    ReciboRepository>();
+
+builder.Services.AddScoped<
+    ICajaService,
+    CajaService>();
+
+
+// Estadísticas Caja
 builder.Services.AddScoped<
     IEstadisticaCajaRepository,
     EstadisticaCajaRepository>();
@@ -48,6 +85,8 @@ builder.Services.AddScoped<
     IEstadisticaCajaService,
     EstadisticaCajaService>();
 
+
+// Asignación Socio Caseta
 builder.Services.AddScoped<
     IAsignacionSocioCasetaRepository,
     AsignacionSocioCasetaRepository>();
@@ -59,13 +98,16 @@ builder.Services.AddScoped<
 
 var app = builder.Build();
 
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
+
 app.UseHttpsRedirection();
 
 app.MapControllers();
+
 
 app.Run();

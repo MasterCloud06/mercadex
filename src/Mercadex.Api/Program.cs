@@ -99,6 +99,16 @@ builder.Services.AddScoped<
     IAsignacionSocioCasetaRepository,
     AsignacionSocioCasetaRepository>();
 
+// Ingresos
+
+builder.Services.AddScoped<
+    IIngresoRepository,
+    IngresoRepository>();
+
+builder.Services.AddScoped<
+    IIngresoService,
+    IngresoService>();
+
 builder.Services.AddScoped<
     IAsignacionSocioCasetaService,
     AsignacionSocioCasetaService>();

@@ -33,4 +33,7 @@ public interface IObligacionRepository
 
     Task<bool> RestaurarComoPendienteAsync(
         Guid id);
+
+Task<IEnumerable<ObligacionDto>> ObtenerPendientesPorUnidadAsync(
+    Guid unidadComercialId);
 }

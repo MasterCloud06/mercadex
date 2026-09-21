@@ -99,4 +99,12 @@ public async Task<ActionResult<ResultadoCobroDto>> ProcesarCobro(
     return Ok(resultado);
 }
 
+[HttpGet("recibos")]
+public async Task<ActionResult<IEnumerable<ReciboDto>>> ObtenerRecibos()
+{
+    var recibos = await _reciboRepository.GetAllAsync();
+
+    return Ok(recibos);
+}
+
 }

@@ -1,6 +1,7 @@
 using Mercadex.Application.DTOs;
 using Mercadex.Application.DTOs.Caja;
 using Mercadex.Application.Interfaces;
+using Mercadex.Application.Interfaces.Persistence;
 using Mercadex.Domain.Caja;
 
 namespace Mercadex.Application.Services;
@@ -10,16 +11,19 @@ public sealed class CajaService : ICajaService
     private readonly IPagoRepository _pagoRepository;
     private readonly IReciboRepository _reciboRepository;
     private readonly IObligacionRepository _obligacionRepository;
+    private readonly IUnitOfWork _unitOfWork;
 
 
     public CajaService(
         IPagoRepository pagoRepository,
         IReciboRepository reciboRepository,
-        IObligacionRepository obligacionRepository)
+        IObligacionRepository obligacionRepository,
+        IUnitOfWork unitOfWork)
     {
         _pagoRepository = pagoRepository;
         _reciboRepository = reciboRepository;
         _obligacionRepository = obligacionRepository;
+        _unitOfWork = unitOfWork;
     }
 
 
@@ -76,6 +80,25 @@ public sealed class CajaService : ICajaService
             .ToList();
 
 
+        var totalEsperado =
+            obligaciones.Sum(x => x.Monto);
+
+
+        if (dto.Monto != totalEsperado)
+        {
+            throw new InvalidOperationException(
+                "El monto enviado no coincide con el total de las obligaciones.");
+        }
+
+
+        if (obligaciones.Any(x =>
+            x.MonedaId != dto.MonedaId))
+        {
+            throw new InvalidOperationException(
+                "La moneda del pago no coincide con la moneda de las obligaciones.");
+        }
+
+
         var resultado =
             ServicioCobro.Registrar(
                 dto.NumeroRecibo,
@@ -87,14 +110,31 @@ public sealed class CajaService : ICajaService
                 dto.Referencia);
 
 
-        await _pagoRepository
-            .GuardarAsync(
-                resultado.Pago);
+        await _unitOfWork
+            .BeginTransactionAsync();
+
+        try
+        {
+            await _pagoRepository
+                .GuardarAsync(
+                    resultado.Pago);
 
 
-        await _reciboRepository
-            .GuardarAsync(
-                resultado.Recibo);
+            await _reciboRepository
+                .GuardarAsync(
+                    resultado.Recibo);
+
+
+            await _unitOfWork
+                .CommitAsync();
+        }
+        catch
+        {
+            await _unitOfWork
+                .RollbackAsync();
+
+            throw;
+        }
 
 
         return new ResultadoCobroDto(

@@ -3,6 +3,7 @@ using Mercadex.Application.Services;
 using Mercadex.Infrastructure.Persistence;
 using Mercadex.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Mercadex.Application.Interfaces.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -75,6 +76,11 @@ builder.Services.AddScoped<
     ICajaService,
     CajaService>();
 
+// Unidad de trabajo
+builder.Services.AddScoped<
+    IUnitOfWork,
+    UnitOfWork>();
+
 
 // Estadísticas Caja
 builder.Services.AddScoped<
@@ -99,6 +105,8 @@ builder.Services.AddScoped<
 
 
 var app = builder.Build();
+
+app.UseMiddleware<Mercadex.Api.Middleware.ExceptionMiddleware>();
 
 
 if (app.Environment.IsDevelopment())

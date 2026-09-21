@@ -42,6 +42,31 @@ public sealed class ReciboRepository : IReciboRepository
             .FirstOrDefaultAsync();
     }
 
+public async Task<IEnumerable<ReciboDto>> GetAllAsync()
+{
+    return await _context.Recibos
+        .AsNoTracking()
+        .OrderByDescending(r => r.FechaEmision)
+        .Select(r => new ReciboDto(
+            r.Id,
+            r.Numero,
+            r.UnidadComercialId,
+            r.PagoId,
+            r.FechaEmision,
+            r.Estado.ToString(),
+            r.Total,
+            r.Detalles.Select(d =>
+                new DetalleReciboDto(
+                    d.ObligacionId,
+                    d.ConceptoCobroId,
+                    d.Concepto,
+                    d.Monto,
+                    d.PeriodoAnio,
+                    d.PeriodoMes))
+        ))
+        .ToListAsync();
+}
+
 
     public async Task<ReciboDto> CrearAsync(
         CrearReciboDto dto)

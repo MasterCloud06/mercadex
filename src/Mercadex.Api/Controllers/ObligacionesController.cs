@@ -82,4 +82,16 @@ public sealed class ObligacionesController : ControllerBase
 
         return NoContent();
     }
+
+[HttpGet("unidad/{unidadComercialId:guid}/pendientes")]
+public async Task<ActionResult<IEnumerable<ObligacionDto>>> ObtenerPendientesPorUnidad(
+    Guid unidadComercialId)
+{
+    var obligaciones = await _service
+        .ObtenerPendientesPorUnidadAsync(
+            unidadComercialId);
+
+    return Ok(obligaciones);
+}
+
 }

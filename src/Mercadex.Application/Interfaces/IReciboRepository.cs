@@ -5,6 +5,9 @@ namespace Mercadex.Application.Interfaces;
 
 public interface IReciboRepository
 {
+    Task<IEnumerable<ReciboDto>> GetAllAsync();
+
+
     Task<ReciboDto?> GetByIdAsync(
         Guid id);
 

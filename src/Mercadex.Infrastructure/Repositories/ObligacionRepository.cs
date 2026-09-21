@@ -144,4 +144,26 @@ public async Task<bool> ExisteAsync(
             o.PeriodoAnio == periodoAnio &&
             o.PeriodoMes == periodoMes);
 }
+public async Task<IEnumerable<ObligacionDto>> ObtenerPendientesPorUnidadAsync(
+    Guid unidadComercialId)
+{
+    return await _context.Obligaciones
+        .AsNoTracking()
+        .Where(o =>
+            o.UnidadComercialId == unidadComercialId &&
+            o.Estado.ToString() == "Pendiente")
+        .Select(o => new ObligacionDto(
+            o.Id,
+            o.UnidadComercialId,
+            o.ConceptoCobroId,
+            o.MonedaId,
+            o.Monto,
+            o.FechaEmision,
+            o.FechaVencimiento,
+            o.PeriodoAnio,
+            o.PeriodoMes,
+            o.Estado.ToString()
+        ))
+        .ToListAsync();
+}
 }

@@ -88,6 +88,15 @@ public sealed class ReciboRepository : IReciboRepository
                     d.PeriodoMes))
         );
     }
+
+public async Task GuardarAsync(
+    Recibo recibo)
+{
+    _context.Recibos.Add(recibo);
+
+    await _context.SaveChangesAsync();
+}
+
 public async Task<bool> AnularAsync(
     Guid id,
     string motivo)

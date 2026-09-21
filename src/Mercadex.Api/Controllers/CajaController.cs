@@ -1,6 +1,7 @@
 using Mercadex.Application.DTOs;
 using Mercadex.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Mercadex.Application.DTOs.Caja;
 
 namespace Mercadex.Api.Controllers;
 
@@ -87,4 +88,15 @@ public async Task<IActionResult> AnularRecibo(
 
     return NoContent();
 }
+
+[HttpPost("cobrar")]
+public async Task<ActionResult<ResultadoCobroDto>> ProcesarCobro(
+    ProcesarCobroDto dto)
+{
+    var resultado = await _service
+        .ProcesarCobroAsync(dto);
+
+    return Ok(resultado);
+}
+
 }

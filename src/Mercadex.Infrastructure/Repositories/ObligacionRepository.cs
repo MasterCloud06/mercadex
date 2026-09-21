@@ -87,6 +87,16 @@ public sealed class ObligacionRepository : IObligacionRepository
         );
     }
 
+public async Task<IReadOnlyList<Obligacion>> ObtenerPorIdsAsync(
+    IEnumerable<Guid> ids)
+{
+    var listaIds = ids.ToList();
+
+    return await _context.Obligaciones
+        .Where(o => listaIds.Contains(o.Id))
+        .ToListAsync();
+}
+
     public async Task<bool> MarcarComoPagadaAsync(Guid id)
     {
         var obligacion = await _context.Obligaciones

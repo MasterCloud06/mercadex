@@ -67,6 +67,14 @@ public sealed class PagoRepository : IPagoRepository
         );
     }
 
+public async Task GuardarAsync(
+    Pago pago)
+{
+    _context.Pagos.Add(pago);
+
+    await _context.SaveChangesAsync();
+}
+
 
     public async Task<bool> AnularAsync(
         Guid id)

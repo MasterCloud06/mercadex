@@ -1,6 +1,6 @@
 namespace Mercadex.Domain.Comercial;
 
-public enum EstadoUnidadComercial
+public enum EstadoCaseta
 {
     Activa = 1,
     Inactiva = 2

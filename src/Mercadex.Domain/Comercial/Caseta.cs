@@ -2,14 +2,14 @@ using Mercadex.Domain.Common;
 
 namespace Mercadex.Domain.Comercial;
 
-public sealed class UnidadComercial : Entity
+public sealed class Caseta : Entity
 {
-    private UnidadComercial()
+    private Caseta()
     {
     }
 
 
-    public UnidadComercial(
+    public Caseta(
         string numero,
         Guid socioId)
     {
@@ -33,21 +33,22 @@ public sealed class UnidadComercial : Entity
 
         SocioId = socioId;
 
-        Estado = EstadoUnidadComercial.Activa;
+        Estado = EstadoCaseta.Activa;
     }
 
 
-    public string Numero { get; private set; } = string.Empty;
+    public string Numero { get; private set; }
+        = string.Empty;
 
 
     public Guid SocioId { get; private set; }
 
 
-    public EstadoUnidadComercial Estado { get; private set; }
+    public EstadoCaseta Estado { get; private set; }
 
 
     public void Desactivar()
     {
-        Estado = EstadoUnidadComercial.Inactiva;
+        Estado = EstadoCaseta.Inactiva;
     }
 }

@@ -1,5 +1,8 @@
+
 using System.Net;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Mercadex.Api.Middleware;
 
@@ -7,7 +10,6 @@ public sealed class ExceptionMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionMiddleware> _logger;
-
 
     public ExceptionMiddleware(
         RequestDelegate next,
@@ -17,9 +19,7 @@ public sealed class ExceptionMiddleware
         _logger = logger;
     }
 
-
-    public async Task InvokeAsync(
-        HttpContext context)
+    public async Task InvokeAsync(HttpContext context)
     {
         try
         {
@@ -39,6 +39,18 @@ public sealed class ExceptionMiddleware
                 HttpStatusCode.Conflict,
                 ex.Message);
         }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is PostgresException
+            {
+                SqlState: PostgresErrorCodes.UniqueViolation,
+                ConstraintName: "UX_socios_DocumentoNormalizado"
+            })
+        {
+            await HandleExceptionAsync(
+                context,
+                HttpStatusCode.Conflict,
+                "Ya existe un socio registrado con ese documento de identidad.");
+        }
         catch (Exception ex)
         {
             _logger.LogError(
@@ -52,24 +64,18 @@ public sealed class ExceptionMiddleware
         }
     }
 
-
     private static async Task HandleExceptionAsync(
         HttpContext context,
         HttpStatusCode statusCode,
         string mensaje)
     {
-        context.Response.ContentType =
-            "application/json";
-
-        context.Response.StatusCode =
-            (int)statusCode;
-
+        context.Response.ContentType = "application/json";
+        context.Response.StatusCode = (int)statusCode;
 
         var respuesta = new
         {
             mensaje
         };
-
 
         await context.Response.WriteAsync(
             JsonSerializer.Serialize(respuesta));

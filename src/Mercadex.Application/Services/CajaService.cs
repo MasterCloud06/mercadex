@@ -53,89 +53,94 @@ public sealed class CajaService : ICajaService
     }
 
 
-    public async Task<ResultadoCobroDto> ProcesarCobroAsync(
-        ProcesarCobroDto dto)
+    
+public async Task<ResultadoCobroDto> ProcesarCobroAsync(
+    ProcesarCobroDto dto)
+{
+    if (dto.Items is null)
+    {
+        throw new ArgumentException(
+            "Debe seleccionar al menos una obligación.");
+    }
+
+    var solicitudes = dto.Items.ToList();
+
+    if (solicitudes.Count == 0)
+    {
+        throw new ArgumentException(
+            "Debe seleccionar al menos una obligación.");
+    }
+
+    if (solicitudes
+        .GroupBy(x => x.ObligacionId)
+        .Any(g => g.Count() > 1))
+    {
+        throw new InvalidOperationException(
+            "No puede seleccionar dos veces la misma obligación.");
+    }
+
+    await _unitOfWork.BeginTransactionAsync();
+
+    try
     {
         var obligaciones =
-            await _obligacionRepository
-                .ObtenerPorIdsAsync(
-                    dto.Items.Select(x => x.ObligacionId));
+            await _obligacionRepository.ObtenerPorIdsAsync(
+                solicitudes.Select(x => x.ObligacionId));
 
-
-        if (obligaciones.Count != dto.Items.Count())
+        if (obligaciones.Count != solicitudes.Count)
         {
             throw new InvalidOperationException(
                 "No se encontraron todas las obligaciones.");
         }
 
-
-        var items = obligaciones
-            .Select(o =>
-                new ItemCobro(
-                    o,
-                    dto.Items
-                        .First(x =>
-                            x.ObligacionId == o.Id)
-                        .NombreConcepto))
-            .ToList();
-
-
-        var totalEsperado =
-            obligaciones.Sum(x => x.Monto);
-
-
-        if (dto.Monto != totalEsperado)
+        if (obligaciones.Any(x =>
+            x.UnidadComercialId != dto.UnidadComercialId))
         {
             throw new InvalidOperationException(
-                "El monto enviado no coincide con el total de las obligaciones.");
+                "Las obligaciones no pertenecen a la unidad seleccionada.");
         }
-
 
         if (obligaciones.Any(x =>
             x.MonedaId != dto.MonedaId))
         {
             throw new InvalidOperationException(
-                "La moneda del pago no coincide con la moneda de las obligaciones.");
+                "La moneda del pago no coincide con las obligaciones.");
         }
 
+        var totalEsperado = obligaciones.Sum(x => x.Monto);
 
-        var resultado =
-            ServicioCobro.Registrar(
-                dto.NumeroRecibo,
-                items,
-                (FormaPago)dto.FormaPago,
-                dto.NombrePagador,
-                DateTimeOffset.UtcNow,
-                dto.TipoCambio,
-                dto.Referencia);
-
-
-        await _unitOfWork
-            .BeginTransactionAsync();
-
-        try
+        if (dto.Monto != totalEsperado)
         {
-            await _pagoRepository
-                .GuardarAsync(
-                    resultado.Pago);
-
-
-            await _reciboRepository
-                .GuardarAsync(
-                    resultado.Recibo);
-
-
-            await _unitOfWork
-                .CommitAsync();
-        }
-        catch
-        {
-            await _unitOfWork
-                .RollbackAsync();
-
-            throw;
+            throw new InvalidOperationException(
+                "El importe no coincide con las obligaciones seleccionadas.");
         }
 
+        var items = obligaciones
+            .Select(o => new ItemCobro(
+                o,
+                solicitudes.First(x =>
+                    x.ObligacionId == o.Id).NombreConcepto))
+            .ToList();
+
+        // El número se asigna en el servidor.
+        // El valor NumeroRecibo enviado por el escritorio se ignora.
+        var numeroRecibo =
+            await _unitOfWork.ObtenerSiguienteNumeroReciboAsync();
+
+        var resultado = ServicioCobro.Registrar(
+            numeroRecibo,
+            items,
+            (FormaPago)dto.FormaPago,
+            dto.NombrePagador,
+            DateTimeOffset.UtcNow,
+            dto.TipoCambio,
+            dto.Referencia);
+
+        await _pagoRepository.GuardarAsync(resultado.Pago);
+
+        await _reciboRepository.GuardarAsync(resultado.Recibo);
+
+        await _unitOfWork.CommitAsync();
 
         return new ResultadoCobroDto(
             new PagoDto(
@@ -167,6 +172,13 @@ public sealed class CajaService : ICajaService
                         d.PeriodoMes)))
         );
     }
+    catch
+    {
+        await _unitOfWork.RollbackAsync();
+        throw;
+    }
+}
+
 
 
     public async Task<bool> AnularReciboAsync(

@@ -1,5 +1,8 @@
+
 using Mercadex.Application.Interfaces.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using System.Data;
 
 namespace Mercadex.Infrastructure.Persistence;
 
@@ -9,21 +12,38 @@ public sealed class UnitOfWork : IUnitOfWork
 
     private IDbContextTransaction? _transaction;
 
-
-    public UnitOfWork(
-        MercadexDbContext context)
+    public UnitOfWork(MercadexDbContext context)
     {
         _context = context;
     }
 
-
     public async Task BeginTransactionAsync()
     {
-        _transaction =
-            await _context.Database
-                .BeginTransactionAsync();
+        _transaction = await _context.Database
+            .BeginTransactionAsync();
     }
 
+    public async Task<long> ObtenerSiguienteNumeroReciboAsync()
+    {
+        if (_transaction is null)
+        {
+            throw new InvalidOperationException(
+                "Debe iniciarse una transacción antes de generar el número de recibo.");
+        }
+
+        var connection = _context.Database.GetDbConnection();
+
+        await using var command = connection.CreateCommand();
+
+        command.Transaction = _transaction.GetDbTransaction();
+
+        command.CommandText =
+            "SELECT nextval('numeracion_recibos')";
+
+        var resultado = await command.ExecuteScalarAsync();
+
+        return Convert.ToInt64(resultado);
+    }
 
     public async Task CommitAsync()
     {
@@ -40,7 +60,6 @@ public sealed class UnitOfWork : IUnitOfWork
 
         _transaction = null;
     }
-
 
     public async Task RollbackAsync()
     {

@@ -87,15 +87,32 @@ public sealed class ObligacionRepository : IObligacionRepository
         );
     }
 
+
 public async Task<IReadOnlyList<Obligacion>> ObtenerPorIdsAsync(
     IEnumerable<Guid> ids)
 {
-    var listaIds = ids.ToList();
+    var listaIds = ids.Distinct().ToArray();
 
+    if (listaIds.Length == 0)
+    {
+        return Array.Empty<Obligacion>();
+    }
+
+    // FOR UPDATE bloquea las obligaciones seleccionadas hasta
+    // que la transacción confirme o revierta el cobro.
+    // Ordenamos los identificadores para reducir el riesgo
+    // de interbloqueos entre cobros simultáneos.
     return await _context.Obligaciones
-        .Where(o => listaIds.Contains(o.Id))
+        .FromSqlInterpolated($"""
+            SELECT *
+            FROM obligaciones
+            WHERE "Id" = ANY ({listaIds})
+            ORDER BY "Id"
+            FOR UPDATE
+            """)
         .ToListAsync();
 }
+
 
     public async Task<bool> MarcarComoPagadaAsync(Guid id)
     {

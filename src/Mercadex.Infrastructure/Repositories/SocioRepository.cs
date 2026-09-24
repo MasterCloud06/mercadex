@@ -1,3 +1,4 @@
+
 using Mercadex.Application.DTOs.Socios;
 using Mercadex.Application.Interfaces;
 using Mercadex.Domain.Socios;
@@ -10,13 +11,10 @@ public sealed class SocioRepository : ISocioRepository
 {
     private readonly MercadexDbContext _context;
 
-
-    public SocioRepository(
-        MercadexDbContext context)
+    public SocioRepository(MercadexDbContext context)
     {
         _context = context;
     }
-
 
     public async Task<IReadOnlyList<SocioDto>> ObtenerAsync()
     {
@@ -32,9 +30,7 @@ public sealed class SocioRepository : ISocioRepository
             .ToListAsync();
     }
 
-
-    public async Task<SocioDto?> ObtenerPorIdAsync(
-        Guid id)
+    public async Task<SocioDto?> ObtenerPorIdAsync(Guid id)
     {
         return await _context.Socios
             .AsNoTracking()
@@ -49,21 +45,40 @@ public sealed class SocioRepository : ISocioRepository
             .FirstOrDefaultAsync();
     }
 
-
-    public async Task<SocioDto> CrearAsync(
-        CrearSocioDto dto)
+    public async Task<SocioDto> CrearAsync(CrearSocioDto dto)
     {
+        if (string.IsNullOrWhiteSpace(dto.DocumentoIdentidad))
+        {
+            throw new ArgumentException(
+                "El documento de identidad es obligatorio.");
+        }
+
+        var documento = dto.DocumentoIdentidad.Trim();
+        var documentoNormalizado = documento.ToUpperInvariant();
+
+        // Verificar si el documento ya está registrado.
+        var documentoExiste = await _context.Socios
+            .AsNoTracking()
+            .AnyAsync(s =>
+                s.DocumentoIdentidad.Trim().ToUpper()
+                == documentoNormalizado);
+
+        if (documentoExiste)
+        {
+            throw new InvalidOperationException(
+                "Ya existe un socio registrado con ese documento de identidad.");
+        }
+
+        // Solamente registrar si el documento no existe.
         var socio = new Socio(
             dto.Nombres,
             dto.Apellidos,
-            dto.DocumentoIdentidad,
+            documento,
             dto.Telefono);
-
 
         _context.Socios.Add(socio);
 
         await _context.SaveChangesAsync();
-
 
         return new SocioDto(
             socio.Id,

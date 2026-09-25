@@ -1,15 +1,58 @@
-﻿using Mercadex.Application.Interfaces;
+﻿using System.Threading.RateLimiting;
+using Mercadex.Application.Interfaces;
 using Mercadex.Application.Services;
 using Mercadex.Infrastructure.Persistence;
 using Mercadex.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Mercadex.Application.Interfaces.Persistence;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 
 builder.Services.AddOpenApi();
+
+
+// AUTENTICACIÓN PARA KARDEX
+
+var jwtKey = builder.Configuration["MERCADEX_JWT_KEY"];
+
+if (string.IsNullOrWhiteSpace(jwtKey) ||
+    Encoding.UTF8.GetByteCount(jwtKey) < 32)
+{
+    throw new InvalidOperationException(
+        "Configure MERCADEX_JWT_KEY con al menos 32 bytes.");
+}
+
+builder.Services
+    .AddAuthentication(
+        JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters =
+            new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = "Mercadex",
+
+                ValidateAudience = true,
+                ValidAudience = "Mercadex.Desktop",
+
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey =
+                    new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(jwtKey)),
+
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromMinutes(1)
+            };
+    });
+
+builder.Services.AddAuthorization();
+
 
 
 var connectionString =
@@ -113,6 +156,25 @@ builder.Services.AddScoped<
     IAsignacionSocioCasetaService,
     AsignacionSocioCasetaService>();
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = 429;
+
+    options.AddPolicy("login", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey:
+                context.Connection.RemoteIpAddress?
+                    .ToString() ?? "desconocida",
+
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(5),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+});
+
 
 var app = builder.Build();
 
@@ -126,6 +188,10 @@ if (app.Environment.IsDevelopment())
 
 
 app.UseHttpsRedirection();
+
+app.UseAuthentication();
+app.UseRateLimiter();
+app.UseAuthorization();
 
 app.MapControllers();
 

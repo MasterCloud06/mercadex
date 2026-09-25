@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Mercadex.Application.DTOs;
 using Mercadex.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -73,6 +74,9 @@ public sealed class CajaController : ControllerBase
         return Ok(recibo);
     }
 [HttpPut("recibos/{id:guid}/anular")]
+
+[Authorize(Roles = "Administrador")]
+
 public async Task<IActionResult> AnularRecibo(
     Guid id,
     AnularReciboDto dto)

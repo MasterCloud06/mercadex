@@ -1,4 +1,5 @@
-﻿using Mercadex.Domain.Caja;
+﻿using Mercadex.Infrastructure.Persistence.Entities;
+using Mercadex.Domain.Caja;
 using Mercadex.Domain.Cobranza;
 using Mercadex.Domain.Organizacion;
 using Mercadex.Domain.Socios;
@@ -60,6 +61,8 @@ public sealed class MercadexDbContext : DbContext
         Set<DetalleRecibo>();
 
 
+    public DbSet<KardexCaseta> KardexCasetas =>
+        Set<KardexCaseta>();
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)
     {

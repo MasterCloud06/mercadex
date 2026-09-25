@@ -181,45 +181,152 @@ public async Task<ResultadoCobroDto> ProcesarCobroAsync(
 
 
 
-    public async Task<bool> AnularReciboAsync(
-        Guid reciboId,
-        AnularReciboDto dto)
+    
+public async Task<bool> AnularReciboAsync(
+    Guid reciboId,
+    AnularReciboDto dto)
+{
+    ArgumentNullException.ThrowIfNull(dto);
+
+    var motivo = dto.Motivo?.Trim();
+
+    if (string.IsNullOrWhiteSpace(motivo))
     {
+        throw new ArgumentException(
+            "El motivo de anulacion es obligatorio.");
+    }
+
+    if (motivo.Length > 500)
+    {
+        throw new ArgumentException(
+            "El motivo no puede superar 500 caracteres.");
+    }
+
+    await _unitOfWork.BeginTransactionAsync();
+
+    try
+    {
+        // 1. Consultar el recibo original.
+
         var recibo = await _reciboRepository
             .GetByIdAsync(reciboId);
 
-
         if (recibo is null)
         {
+            await _unitOfWork.RollbackAsync();
             return false;
         }
 
+        if (!string.Equals(
+            recibo.Estado,
+            "Emitido",
+            StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Solo se pueden anular recibos emitidos.");
+        }
 
-        var reciboAnulado = await _reciboRepository
-            .AnularAsync(
+        // 2. Validar el pago asociado.
+
+        var pago = await _pagoRepository
+            .GetByIdAsync(recibo.PagoId);
+
+        if (pago is null ||
+            !string.Equals(
+                pago.Estado,
+                "Registrado",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "El pago no existe o ya fue anulado.");
+        }
+
+        // 3. Verificar todas las obligaciones
+        // antes de modificar cualquier registro.
+
+        var detalles = recibo.Detalles.ToList();
+
+        if (detalles.Count == 0 ||
+            detalles.Select(d => d.ObligacionId)
+                .Distinct()
+                .Count() != detalles.Count)
+        {
+            throw new InvalidOperationException(
+                "Los detalles del recibo no son validos.");
+        }
+
+        foreach (var detalle in detalles)
+        {
+            var obligacion = await _obligacionRepository
+                .GetByIdAsync(detalle.ObligacionId);
+
+            if (obligacion is null ||
+                obligacion.UnidadComercialId !=
+                    recibo.UnidadComercialId ||
+                !string.Equals(
+                    obligacion.Estado,
+                    "Pagada",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "No se puede restituir una de las " +
+                    "obligaciones del recibo.");
+            }
+        }
+
+        // 4. Anular recibo y pago y restituir deudas.
+        // Todos los cambios pertenecen
+        // a la misma transaccion.
+
+        var reciboAnulado =
+            await _reciboRepository.AnularAsync(
                 reciboId,
-                dto.Motivo);
-
+                motivo);
 
         if (!reciboAnulado)
         {
-            return false;
+            throw new InvalidOperationException(
+                "No se pudo anular el recibo.");
         }
 
-
-        await _pagoRepository
-            .AnularAsync(
+        var pagoAnulado =
+            await _pagoRepository.AnularAsync(
                 recibo.PagoId);
 
-
-        foreach (var detalle in recibo.Detalles)
+        if (!pagoAnulado)
         {
-            await _obligacionRepository
-                .RestaurarComoPendienteAsync(
-                    detalle.ObligacionId);
+            throw new InvalidOperationException(
+                "No se pudo anular el pago asociado.");
         }
 
+        foreach (var detalle in detalles)
+        {
+            var restaurada =
+                await _obligacionRepository
+                    .RestaurarComoPendienteAsync(
+                        detalle.ObligacionId);
+
+            if (!restaurada)
+            {
+                throw new InvalidOperationException(
+                    "No se pudo restituir una deuda.");
+            }
+        }
+
+        // 5. Confirmar todo junto.
+
+        await _unitOfWork.CommitAsync();
 
         return true;
     }
+    catch
+    {
+        // Si algo falla, no se confirma
+        // ninguna de las modificaciones.
+
+        await _unitOfWork.RollbackAsync();
+        throw;
+    }
+}
+
 }

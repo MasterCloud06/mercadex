@@ -1,4 +1,4 @@
-using Mercadex.Application.DTOs;
+﻿using Mercadex.Application.DTOs;
 using Mercadex.Application.Interfaces;
 using Mercadex.Domain.Caja;
 using Mercadex.Infrastructure.Persistence;
@@ -29,7 +29,7 @@ public sealed class ReciboRepository : IReciboRepository
                 r.PagoId,
                 r.FechaEmision,
                 r.Estado.ToString(),
-                r.Total,
+                r.Detalles.Sum(d => d.Monto),
                 r.Detalles.Select(d =>
                     new DetalleReciboDto(
                         d.ObligacionId,
@@ -54,7 +54,7 @@ public async Task<IEnumerable<ReciboDto>> GetAllAsync()
             r.PagoId,
             r.FechaEmision,
             r.Estado.ToString(),
-            r.Total,
+            r.Detalles.Sum(d => d.Monto),
             r.Detalles.Select(d =>
                 new DetalleReciboDto(
                     d.ObligacionId,

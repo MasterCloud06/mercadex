@@ -1,4 +1,4 @@
-using Mercadex.Application.DTOs;
+﻿using Mercadex.Application.DTOs;
 using Mercadex.Application.Interfaces;
 using Mercadex.Domain.Cobranza;
 using Mercadex.Infrastructure.Persistence;
@@ -99,9 +99,9 @@ public async Task<IReadOnlyList<Obligacion>> ObtenerPorIdsAsync(
     }
 
     // FOR UPDATE bloquea las obligaciones seleccionadas hasta
-    // que la transacción confirme o revierta el cobro.
+    // que la transacciÃ³n confirme o revierta el cobro.
     // Ordenamos los identificadores para reducir el riesgo
-    // de interbloqueos entre cobros simultáneos.
+    // de interbloqueos entre cobros simultÃ¡neos.
     return await _context.Obligaciones
         .FromSqlInterpolated($"""
             SELECT *
@@ -168,7 +168,7 @@ public async Task<IEnumerable<ObligacionDto>> ObtenerPendientesPorUnidadAsync(
         .AsNoTracking()
         .Where(o =>
             o.UnidadComercialId == unidadComercialId &&
-            o.Estado.ToString() == "Pendiente")
+            o.Estado == EstadoObligacion.Pendiente)
         .Select(o => new ObligacionDto(
             o.Id,
             o.UnidadComercialId,

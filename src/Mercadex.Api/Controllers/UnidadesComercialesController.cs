@@ -1,8 +1,9 @@
-
 using Mercadex.Domain.Organizacion;
 using Mercadex.Infrastructure.Persistence;
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+
 using Npgsql;
 
 namespace Mercadex.Api.Controllers;
@@ -19,7 +20,9 @@ public sealed class UnidadesComercialesController : ControllerBase
         _context = context;
     }
 
+    // =========================================================
     // CONSULTAR TODAS LAS UNIDADES
+    // =========================================================
 
     [HttpGet]
     public async Task<IActionResult> Obtener()
@@ -43,7 +46,9 @@ public sealed class UnidadesComercialesController : ControllerBase
         return Ok(unidades);
     }
 
+    // =========================================================
     // CONSULTAR UNA UNIDAD POR SU ID
+    // =========================================================
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> ObtenerPorId(Guid id)
@@ -74,7 +79,9 @@ public sealed class UnidadesComercialesController : ControllerBase
         return Ok(unidad);
     }
 
+    // =========================================================
     // REGISTRAR CASETA, COMEDOR O AMBULANTE
+    // =========================================================
 
     [HttpPost]
     public async Task<IActionResult> Crear(
@@ -96,34 +103,46 @@ public sealed class UnidadesComercialesController : ControllerBase
             });
         }
 
-        var codigo = solicitud.Codigo.Trim().ToUpperInvariant();
+        var codigo =
+            solicitud.Codigo
+                .Trim()
+                .ToUpperInvariant();
 
         if (codigo.Length > 50)
         {
             return BadRequest(new
             {
-                mensaje = "El código no puede superar los 50 caracteres."
+                mensaje =
+                    "El código no puede superar los 50 caracteres."
             });
         }
 
-        if (solicitud.Bloque?.Trim().Length > 50)
+        var bloque =
+            string.IsNullOrWhiteSpace(solicitud.Bloque)
+                ? null
+                : solicitud.Bloque.Trim();
+
+        if (bloque?.Length > 50)
         {
             return BadRequest(new
             {
-                mensaje = "El bloque no puede superar los 50 caracteres."
+                mensaje =
+                    "El bloque no puede superar los 50 caracteres."
             });
         }
 
         // Evitar códigos repetidos.
 
-        var codigoExiste = await _context.UnidadesComerciales
-            .AnyAsync(u => u.Codigo == codigo);
+        var codigoExiste =
+            await _context.UnidadesComerciales
+                .AnyAsync(u => u.Codigo == codigo);
 
         if (codigoExiste)
         {
             return Conflict(new
             {
-                mensaje = "Ya existe una unidad comercial con ese código."
+                mensaje =
+                    "Ya existe una unidad comercial con ese código."
             });
         }
 
@@ -131,16 +150,18 @@ public sealed class UnidadesComercialesController : ControllerBase
 
         if (solicitud.PasilloId.HasValue)
         {
-            var pasilloValido = await _context.Pasillos
-                .AnyAsync(p =>
-                    p.Id == solicitud.PasilloId.Value &&
-                    p.Activo);
+            var pasilloValido =
+                await _context.Pasillos
+                    .AnyAsync(p =>
+                        p.Id == solicitud.PasilloId.Value &&
+                        p.Activo);
 
             if (!pasilloValido)
             {
                 return BadRequest(new
                 {
-                    mensaje = "El pasillo no existe o está inactivo."
+                    mensaje =
+                        "El pasillo no existe o está inactivo."
                 });
             }
         }
@@ -149,7 +170,7 @@ public sealed class UnidadesComercialesController : ControllerBase
             codigo,
             solicitud.Tipo,
             solicitud.PasilloId,
-            solicitud.Bloque
+            bloque
         );
 
         _context.UnidadesComerciales.Add(unidad);
@@ -166,13 +187,17 @@ public sealed class UnidadesComercialesController : ControllerBase
         {
             return Conflict(new
             {
-                mensaje = "Ya existe una unidad comercial con ese código."
+                mensaje =
+                    "Ya existe una unidad comercial con ese código."
             });
         }
 
         return CreatedAtAction(
             nameof(ObtenerPorId),
-            new { id = unidad.Id },
+            new
+            {
+                id = unidad.Id
+            },
             new
             {
                 unidad.Id,
@@ -184,11 +209,134 @@ public sealed class UnidadesComercialesController : ControllerBase
                 unidad.FechaRegistro
             });
     }
+
+    // =========================================================
+    // ACTUALIZAR PASILLO / BLOQUE DE UNA UNIDAD EXISTENTE
+    // =========================================================
+
+    [HttpPut("{id:guid}/ubicacion")]
+    public async Task<IActionResult> ActualizarUbicacion(
+        Guid id,
+        [FromBody] ActualizarUbicacionUnidadRequest solicitud)
+    {
+        var unidad =
+            await _context.UnidadesComerciales
+                .FirstOrDefaultAsync(u => u.Id == id);
+
+        if (unidad is null)
+        {
+            return NotFound(new
+            {
+                mensaje =
+                    "La unidad comercial no existe."
+            });
+        }
+
+        var bloque =
+            string.IsNullOrWhiteSpace(solicitud.Bloque)
+                ? null
+                : solicitud.Bloque.Trim();
+
+        if (bloque?.Length > 50)
+        {
+            return BadRequest(new
+            {
+                mensaje =
+                    "El bloque no puede superar los 50 caracteres."
+            });
+        }
+
+        // Para una caseta queremos mantener
+        // obligatoriamente la relación con un pasillo.
+
+        if (unidad.Tipo == TipoUnidadComercial.Caseta &&
+            !solicitud.PasilloId.HasValue)
+        {
+            return BadRequest(new
+            {
+                mensaje =
+                    "Debes seleccionar un pasillo para la caseta."
+            });
+        }
+
+        // Verificar que el pasillo exista y esté activo.
+
+        if (solicitud.PasilloId.HasValue)
+        {
+            var pasilloValido =
+                await _context.Pasillos
+                    .AnyAsync(p =>
+                        p.Id == solicitud.PasilloId.Value &&
+                        p.Activo);
+
+            if (!pasilloValido)
+            {
+                return BadRequest(new
+                {
+                    mensaje =
+                        "El pasillo seleccionado no existe o está inactivo."
+                });
+            }
+        }
+
+        try
+        {
+            unidad.CambiarUbicacion(
+                solicitud.PasilloId,
+                bloque);
+
+            await _context.SaveChangesAsync();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new
+            {
+                mensaje = ex.Message
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new
+            {
+                mensaje = ex.Message
+            });
+        }
+
+        return Ok(new
+        {
+            mensaje =
+                "Ubicación actualizada correctamente.",
+
+            unidad = new
+            {
+                unidad.Id,
+                unidad.Codigo,
+                unidad.Tipo,
+                unidad.PasilloId,
+                unidad.Bloque,
+                unidad.Activa,
+                unidad.FechaRegistro
+            }
+        });
+    }
 }
+
+// =============================================================
+// SOLICITUD PARA CREAR UNA UNIDAD
+// =============================================================
 
 public sealed record CrearUnidadComercialRequest(
     string Codigo,
     TipoUnidadComercial Tipo,
+    Guid? PasilloId,
+    string? Bloque
+);
+
+// =============================================================
+// SOLICITUD PARA CAMBIAR PASILLO / BLOQUE
+// =============================================================
+
+public sealed record ActualizarUbicacionUnidadRequest(
     Guid? PasilloId,
     string? Bloque
 );

@@ -8,4 +8,7 @@ public sealed record ReciboDto(
     DateTimeOffset FechaEmision,
     string Estado,
     decimal Total,
-    IEnumerable<DetalleReciboDto> Detalles);
+    IEnumerable<DetalleReciboDto> Detalles,
+    string? MotivoAnulacion = null,
+    DateTimeOffset? FechaAnulacion = null,
+    string? AnuladoPor = null);

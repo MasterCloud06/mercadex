@@ -8,15 +8,13 @@ public interface ICajaService
     Task<PagoDto> RegistrarPagoAsync(
         CrearPagoDto dto);
 
-
     Task<ReciboDto> GenerarReciboAsync(
         CrearReciboDto dto);
 
-
     Task<bool> AnularReciboAsync(
         Guid reciboId,
-        AnularReciboDto dto);
-
+        AnularReciboDto dto,
+        string anuladoPor);
 
     Task<ResultadoCobroDto> ProcesarCobroAsync(
         ProcesarCobroDto dto);

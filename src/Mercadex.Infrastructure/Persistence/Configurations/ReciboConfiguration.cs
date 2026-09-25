@@ -32,6 +32,8 @@ public sealed class ReciboConfiguration :
             .HasMaxLength(500);
 
         builder.Property(x => x.FechaAnulacion);
+builder.Property(x => x.AnuladoPor)
+    .HasMaxLength(150);
 
         builder.Ignore(x => x.Total);
         builder.Ignore(x => x.EstaAnulado);

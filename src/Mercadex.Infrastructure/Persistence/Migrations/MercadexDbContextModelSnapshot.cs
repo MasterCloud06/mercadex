@@ -112,6 +112,10 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AnuladoPor")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
                     b.Property<int>("Estado")
                         .HasColumnType("integer");
 

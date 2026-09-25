@@ -81,6 +81,8 @@ public sealed class Recibo : Entity
 
     public DateTimeOffset? FechaAnulacion { get; private set; }
 
+    public string? AnuladoPor { get; private set; }
+
     public IReadOnlyCollection<DetalleRecibo> Detalles =>
         _detalles.AsReadOnly();
 
@@ -93,6 +95,17 @@ public sealed class Recibo : Entity
     public void Anular(
         string motivo,
         DateTimeOffset fechaAnulacion)
+    {
+        Anular(
+            motivo,
+            fechaAnulacion,
+            "Sistema");
+    }
+
+    public void Anular(
+        string motivo,
+        DateTimeOffset fechaAnulacion,
+        string anuladoPor)
     {
         if (Estado == EstadoRecibo.Anulado)
         {
@@ -107,6 +120,15 @@ public sealed class Recibo : Entity
                 nameof(motivo));
         }
 
+        motivo = motivo.Trim();
+
+        if (motivo.Length > 500)
+        {
+            throw new ArgumentException(
+                "El motivo de anulación no puede superar 500 caracteres.",
+                nameof(motivo));
+        }
+
         if (fechaAnulacion < FechaEmision)
         {
             throw new ArgumentException(
@@ -114,8 +136,25 @@ public sealed class Recibo : Entity
                 nameof(fechaAnulacion));
         }
 
+        if (string.IsNullOrWhiteSpace(anuladoPor))
+        {
+            throw new ArgumentException(
+                "Debe indicarse quién realizó la anulación.",
+                nameof(anuladoPor));
+        }
+
+        anuladoPor = anuladoPor.Trim();
+
+        if (anuladoPor.Length > 150)
+        {
+            throw new ArgumentException(
+                "El usuario que anula no puede superar 150 caracteres.",
+                nameof(anuladoPor));
+        }
+
         Estado = EstadoRecibo.Anulado;
-        MotivoAnulacion = motivo.Trim();
+        MotivoAnulacion = motivo;
         FechaAnulacion = fechaAnulacion;
+        AnuladoPor = anuladoPor;
     }
 }

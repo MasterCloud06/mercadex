@@ -16,8 +16,8 @@ public sealed class ReciboRepository : IReciboRepository
         _context = context;
     }
 
-
-    public async Task<ReciboDto?> GetByIdAsync(Guid id)
+    public async Task<ReciboDto?> GetByIdAsync(
+        Guid id)
     {
         return await _context.Recibos
             .AsNoTracking()
@@ -37,36 +37,40 @@ public sealed class ReciboRepository : IReciboRepository
                         d.Concepto,
                         d.Monto,
                         d.PeriodoAnio,
-                        d.PeriodoMes))
-            ))
+                        d.PeriodoMes)),
+                r.MotivoAnulacion,
+                r.FechaAnulacion,
+                r.AnuladoPor))
             .FirstOrDefaultAsync();
     }
 
-public async Task<IEnumerable<ReciboDto>> GetAllAsync()
-{
-    return await _context.Recibos
-        .AsNoTracking()
-        .OrderByDescending(r => r.FechaEmision)
-        .Select(r => new ReciboDto(
-            r.Id,
-            r.Numero,
-            r.UnidadComercialId,
-            r.PagoId,
-            r.FechaEmision,
-            r.Estado.ToString(),
-            r.Detalles.Sum(d => d.Monto),
-            r.Detalles.Select(d =>
-                new DetalleReciboDto(
-                    d.ObligacionId,
-                    d.ConceptoCobroId,
-                    d.Concepto,
-                    d.Monto,
-                    d.PeriodoAnio,
-                    d.PeriodoMes))
-        ))
-        .ToListAsync();
-}
-
+    public async Task<IEnumerable<ReciboDto>>
+        GetAllAsync()
+    {
+        return await _context.Recibos
+            .AsNoTracking()
+            .OrderByDescending(r => r.FechaEmision)
+            .Select(r => new ReciboDto(
+                r.Id,
+                r.Numero,
+                r.UnidadComercialId,
+                r.PagoId,
+                r.FechaEmision,
+                r.Estado.ToString(),
+                r.Detalles.Sum(d => d.Monto),
+                r.Detalles.Select(d =>
+                    new DetalleReciboDto(
+                        d.ObligacionId,
+                        d.ConceptoCobroId,
+                        d.Concepto,
+                        d.Monto,
+                        d.PeriodoAnio,
+                        d.PeriodoMes)),
+                r.MotivoAnulacion,
+                r.FechaAnulacion,
+                r.AnuladoPor))
+            .ToListAsync();
+    }
 
     public async Task<ReciboDto> CrearAsync(
         CrearReciboDto dto)
@@ -81,7 +85,6 @@ public async Task<IEnumerable<ReciboDto>> GetAllAsync()
                 d.PeriodoMes))
             .ToList();
 
-
         var recibo = new Recibo(
             dto.Numero,
             dto.UnidadComercialId,
@@ -89,11 +92,9 @@ public async Task<IEnumerable<ReciboDto>> GetAllAsync()
             DateTimeOffset.UtcNow,
             detallesDominio);
 
-
         _context.Recibos.Add(recibo);
 
         await _context.SaveChangesAsync();
-
 
         return new ReciboDto(
             recibo.Id,
@@ -110,36 +111,40 @@ public async Task<IEnumerable<ReciboDto>> GetAllAsync()
                     d.Concepto,
                     d.Monto,
                     d.PeriodoAnio,
-                    d.PeriodoMes))
-        );
+                    d.PeriodoMes)),
+            recibo.MotivoAnulacion,
+            recibo.FechaAnulacion,
+            recibo.AnuladoPor);
     }
 
-public async Task GuardarAsync(
-    Recibo recibo)
-{
-    _context.Recibos.Add(recibo);
-
-    await _context.SaveChangesAsync();
-}
-
-public async Task<bool> AnularAsync(
-    Guid id,
-    string motivo)
-{
-    var recibo = await _context.Recibos
-        .FirstOrDefaultAsync(r => r.Id == id);
-
-    if (recibo is null)
+    public async Task GuardarAsync(
+        Recibo recibo)
     {
-        return false;
+        _context.Recibos.Add(recibo);
+
+        await _context.SaveChangesAsync();
     }
 
-    recibo.Anular(
-        motivo,
-        DateTimeOffset.UtcNow);
+    public async Task<bool> AnularAsync(
+        Guid id,
+        string motivo,
+        string anuladoPor)
+    {
+        var recibo = await _context.Recibos
+            .FirstOrDefaultAsync(r => r.Id == id);
 
-    await _context.SaveChangesAsync();
+        if (recibo is null)
+        {
+            return false;
+        }
 
-    return true;
-}
+        recibo.Anular(
+            motivo,
+            DateTimeOffset.UtcNow,
+            anuladoPor);
+
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
 }

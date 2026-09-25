@@ -184,9 +184,18 @@ public async Task<ResultadoCobroDto> ProcesarCobroAsync(
     
 public async Task<bool> AnularReciboAsync(
     Guid reciboId,
-    AnularReciboDto dto)
+    AnularReciboDto dto,
+    string anuladoPor)
 {
     ArgumentNullException.ThrowIfNull(dto);
+if (string.IsNullOrWhiteSpace(anuladoPor))
+{
+    throw new ArgumentException(
+        "No se pudo identificar al usuario que realiza la anulación.",
+        nameof(anuladoPor));
+}
+
+anuladoPor = anuladoPor.Trim();
 
     var motivo = dto.Motivo?.Trim();
 
@@ -278,10 +287,11 @@ public async Task<bool> AnularReciboAsync(
         // Todos los cambios pertenecen
         // a la misma transaccion.
 
-        var reciboAnulado =
-            await _reciboRepository.AnularAsync(
-                reciboId,
-                motivo);
+var reciboAnulado =
+    await _reciboRepository.AnularAsync(
+        reciboId,
+        motivo,
+        anuladoPor);
 
         if (!reciboAnulado)
         {

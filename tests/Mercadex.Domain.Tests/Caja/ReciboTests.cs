@@ -60,10 +60,9 @@ public sealed class ReciboTests
     }
 
     [Fact]
-    public void AnularRecibo_DebeConservarDetalles()
+    public void AnularRecibo_DebeRegistrarAuditoria()
     {
-        var fecha =
-            DateTimeOffset.UtcNow;
+        var fecha = DateTimeOffset.UtcNow;
 
         var recibo = new Recibo(
             1,
@@ -72,9 +71,13 @@ public sealed class ReciboTests
             fecha,
             CrearDetalles());
 
+        var fechaAnulacion =
+            fecha.AddMinutes(5);
+
         recibo.Anular(
             "Registro incorrecto",
-            fecha.AddMinutes(5));
+            fechaAnulacion,
+            "administrador");
 
         Assert.True(
             recibo.EstaAnulado);
@@ -84,23 +87,49 @@ public sealed class ReciboTests
             recibo.Estado);
 
         Assert.Equal(
+            "Registro incorrecto",
+            recibo.MotivoAnulacion);
+
+        Assert.Equal(
+            fechaAnulacion,
+            recibo.FechaAnulacion);
+
+        Assert.Equal(
+            "administrador",
+            recibo.AnuladoPor);
+
+        Assert.Equal(
             2,
             recibo.Detalles.Count);
 
         Assert.Equal(
             160m,
             recibo.Total);
+    }
 
-        Assert.Equal(
-            "Registro incorrecto",
-            recibo.MotivoAnulacion);
+    [Fact]
+    public void AnularRecibo_SinUsuario_DebeFallar()
+    {
+        var fecha = DateTimeOffset.UtcNow;
+
+        var recibo = new Recibo(
+            1,
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            fecha,
+            CrearDetalles());
+
+        Assert.Throws<ArgumentException>(() =>
+            recibo.Anular(
+                "Registro incorrecto",
+                fecha.AddMinutes(1),
+                ""));
     }
 
     [Fact]
     public void AnularReciboDosVeces_DebeFallar()
     {
-        var fecha =
-            DateTimeOffset.UtcNow;
+        var fecha = DateTimeOffset.UtcNow;
 
         var recibo = new Recibo(
             1,
@@ -111,12 +140,14 @@ public sealed class ReciboTests
 
         recibo.Anular(
             "Registro incorrecto",
-            fecha.AddMinutes(1));
+            fecha.AddMinutes(1),
+            "administrador");
 
         Assert.Throws<InvalidOperationException>(() =>
             recibo.Anular(
                 "Segundo intento",
-                fecha.AddMinutes(2)));
+                fecha.AddMinutes(2),
+                "administrador"));
     }
 
     private static List<DetalleRecibo> CrearDetalles()

@@ -73,21 +73,36 @@ public sealed class CajaController : ControllerBase
 
         return Ok(recibo);
     }
+
 [HttpPut("recibos/{id:guid}/anular")]
-
 [Authorize(Roles = "Administrador")]
-
 public async Task<IActionResult> AnularRecibo(
     Guid id,
     AnularReciboDto dto)
 {
-    var resultado = await _service.AnularReciboAsync(
-        id,
-        dto);
+    var usuario = User.Identity?.Name;
+
+    if (string.IsNullOrWhiteSpace(usuario))
+    {
+        return Unauthorized(new
+        {
+            mensaje =
+                "No se pudo identificar al usuario autenticado."
+        });
+    }
+
+    var resultado =
+        await _service.AnularReciboAsync(
+            id,
+            dto,
+            usuario);
 
     if (!resultado)
     {
-        return NotFound();
+        return NotFound(new
+        {
+            mensaje = "No se encontró el recibo."
+        });
     }
 
     return NoContent();

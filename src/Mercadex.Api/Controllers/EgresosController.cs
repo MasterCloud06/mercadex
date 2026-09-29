@@ -106,6 +106,47 @@ public sealed class EgresosController : ControllerBase
 
         return Ok(egresos);
     }
+// ============================================================
+// GET: /api/egresos/todos
+// Incluye registrados y anulados para historial/auditoría.
+// ============================================================
+
+[HttpGet("todos")]
+public async Task<ActionResult<
+    IReadOnlyList<EgresoDto>>> GetTodos()
+{
+    var egresos =
+        await _context.Egresos
+            .AsNoTracking()
+            .OrderByDescending(x => x.Fecha)
+            .ThenByDescending(x => x.FechaRegistro)
+            .Select(x => new EgresoDto
+            {
+                Id = x.Id,
+                Fecha = x.Fecha,
+                Categoria = x.Categoria,
+                Concepto = x.Concepto,
+                Beneficiario = x.Beneficiario,
+                Monto = x.Monto,
+                MonedaId = x.MonedaId,
+                FormaPago = x.FormaPago,
+                NumeroComprobante =
+                    x.NumeroComprobante,
+                Observacion =
+                    x.Observacion,
+                FechaRegistro =
+                    x.FechaRegistro,
+                Anulado =
+                    x.Anulado,
+                FechaAnulacion =
+                    x.FechaAnulacion,
+                MotivoAnulacion =
+                    x.MotivoAnulacion
+            })
+            .ToListAsync();
+
+    return Ok(egresos);
+}
 
     // ============================================================
     // GET: /api/egresos/{id}

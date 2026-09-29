@@ -283,6 +283,73 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.ToTable("AsignacionesSocioCaseta");
                 });
 
+            modelBuilder.Entity("Mercadex.Domain.Finanzas.Egreso", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Anulado")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Beneficiario")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Categoria")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Concepto")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset?>("FechaAnulacion")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("FechaRegistro")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FormaPago")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("MonedaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("MotivoAnulacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("NumeroComprobante")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Observacion")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Categoria");
+
+                    b.HasIndex("Fecha");
+
+                    b.HasIndex("MonedaId");
+
+                    b.ToTable("egresos", (string)null);
+                });
+
             modelBuilder.Entity("Mercadex.Domain.Organizacion.AsignacionUnidadComercial", b =>
                 {
                     b.Property<Guid>("Id")
@@ -532,6 +599,15 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.HasOne("Mercadex.Domain.Organizacion.UnidadComercial", null)
                         .WithMany()
                         .HasForeignKey("UnidadComercialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Mercadex.Domain.Finanzas.Egreso", b =>
+                {
+                    b.HasOne("Mercadex.Domain.Cobranza.Moneda", null)
+                        .WithMany()
+                        .HasForeignKey("MonedaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

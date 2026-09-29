@@ -5,6 +5,7 @@ using Mercadex.Domain.Organizacion;
 using Mercadex.Domain.Socios;
 using Mercadex.Domain.Comercial;
 using Microsoft.EntityFrameworkCore;
+using Mercadex.Domain.Finanzas;
 
 namespace Mercadex.Infrastructure.Persistence;
 
@@ -63,6 +64,10 @@ public sealed class MercadexDbContext : DbContext
 
     public DbSet<KardexCaseta> KardexCasetas =>
         Set<KardexCaseta>();
+
+public DbSet<Egreso> Egresos =>
+    Set<Egreso>();
+
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)
     {

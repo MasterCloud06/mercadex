@@ -136,9 +136,22 @@ public sealed class CatalogosIngresosController : ControllerBase
 
 public sealed class CrearConceptoCobroRequest
 {
+    [System.ComponentModel.DataAnnotations.Required(
+        ErrorMessage = "El código es obligatorio.")]
+    [System.ComponentModel.DataAnnotations.StringLength(
+        50,
+        ErrorMessage = "El código no puede superar los 50 caracteres.")]
     public string Codigo { get; set; } = string.Empty;
 
+    [System.ComponentModel.DataAnnotations.Required(
+        ErrorMessage = "El nombre es obligatorio.")]
+    [System.ComponentModel.DataAnnotations.StringLength(
+        150,
+        ErrorMessage = "El nombre no puede superar los 150 caracteres.")]
     public string Nombre { get; set; } = string.Empty;
 
+    [System.ComponentModel.DataAnnotations.StringLength(
+        500,
+        ErrorMessage = "La descripción no puede superar los 500 caracteres.")]
     public string? Descripcion { get; set; }
 }

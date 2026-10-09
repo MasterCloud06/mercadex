@@ -64,12 +64,26 @@ public class ApiClient
 
     public async Task PutAsync<TRequest>(
         string url,
-        TRequest data)
+        TRequest data,
+        string? token = null)
     {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Put,
+            url)
+        {
+            Content = JsonContent.Create(data)
+        };
+
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            request.Headers.Authorization =
+                new AuthenticationHeaderValue(
+                    "Bearer",
+                    token);
+        }
+
         using var response =
-            await _httpClient.PutAsJsonAsync(
-                url,
-                data);
+            await _httpClient.SendAsync(request);
 
         await ValidarRespuestaAsync(response);
     }

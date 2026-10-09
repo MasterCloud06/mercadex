@@ -28,4 +28,10 @@ public class ReciboDto
     public List<DetalleReciboDto> Detalles { get; set; }
         = new();
 
+    public string? MotivoAnulacion { get; set; }
+
+    public DateTimeOffset? FechaAnulacion { get; set; }
+
+    public string? AnuladoPor { get; set; }
+
 }

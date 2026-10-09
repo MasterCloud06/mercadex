@@ -198,13 +198,13 @@
                              Margin="0,0,0,12"/>
 
                     <TextBlock
-                        Text="La anulaci&#243;n se habilitar&#225; despu&#233;s de comprobar la operaci&#243;n en una base de datos de pruebas."
+                        Text="MODO DE PREPARACI&#211;N: la vista previa no anula recibos ni modifica deudas."
                         TextWrapping="Wrap"
                         Foreground="#A52A2A"
                         Margin="0,0,0,12"/>
 
-                    <Button x:Name="BtnAnular"
-                            Content="ANULAR COBRO"
+                    <Button x:Name="BtnAnular" Click="PrepararAnulacion_Click"
+                            Content="PREVISUALIZAR ANULACI&#211;N"
                             IsEnabled="False"
                             Height="42"
                             MinWidth="185"

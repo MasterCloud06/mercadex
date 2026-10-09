@@ -24,6 +24,7 @@ BaseAddress = ApiConfiguration.BaseUri,
     };
 
     private List<ReciboDto> _recibos = new();
+    private ReciboDto? _reciboSeleccionado;
 
     private bool _cargando;
     private bool _inicializado;
@@ -148,6 +149,8 @@ BaseAddress = ApiConfiguration.BaseUri,
     {
         BtnAnular.IsEnabled = false;
         TxtMotivo.IsEnabled = false;
+        _reciboSeleccionado = null;
+        TxtMotivo.Clear();
 
         if (TablaRecibos.SelectedItem
             is not ReciboDto seleccionado)
@@ -216,12 +219,28 @@ BaseAddress = ApiConfiguration.BaseUri,
                 "CONCEPTOS:\n" +
                 string.Join("\n", conceptos);
 
-            // Seguridad:
-            // No ejecutar anulaciones contra
-            // PostgreSQL de produccion.
+            _reciboSeleccionado = recibo;
 
-            BtnAnular.IsEnabled = false;
-            TxtMotivo.IsEnabled = false;
+            // Solo preparar anulaciones de recibos emitidos.
+            // No se ejecutan modificaciones en el servidor.
+            BtnAnular.IsEnabled = !anulado;
+            TxtMotivo.IsEnabled = !anulado;
+
+            if (anulado)
+            {
+                TxtDetalle.Text +=
+                    "\n\nDATOS DE ANULACION:\n" +
+                    "Motivo: " +
+                    (recibo.MotivoAnulacion ?? "No disponible") +
+                    "\nFecha: " +
+                    (recibo.FechaAnulacion.HasValue
+                        ? recibo.FechaAnulacion.Value
+                            .ToLocalTime()
+                            .ToString("dd/MM/yyyy HH:mm")
+                        : "No disponible") +
+                    "\nResponsable: " +
+                    (recibo.AnuladoPor ?? "No disponible");
+            }
         }
         catch (Exception ex)
         {
@@ -240,5 +259,75 @@ BaseAddress = ApiConfiguration.BaseUri,
 
             TxtDetalle.Text = ex.Message;
         }
+    }
+    private void PrepararAnulacion_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        if (_reciboSeleccionado is not ReciboDto recibo ||
+            TablaRecibos.SelectedItem is not ReciboDto seleccionado ||
+            seleccionado.Id != recibo.Id ||
+            !string.Equals(
+                recibo.Estado,
+                "Emitido",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            TxtEstado.Text =
+                "Selecciona un recibo emitido para continuar.";
+
+            return;
+        }
+
+        var motivo = TxtMotivo.Text.Trim();
+
+        if (motivo.Length < 10)
+        {
+            TxtEstado.Text =
+                "Introduce un motivo de al menos 10 caracteres.";
+
+            return;
+        }
+
+        if (motivo.Length > 500)
+        {
+            TxtEstado.Text =
+                "El motivo no puede superar 500 caracteres.";
+
+            return;
+        }
+
+        var conceptos = recibo.Detalles?
+            .Select(d =>
+                $"{d.Concepto}: {d.Monto:N2}")
+            .ToList()
+            ?? new List<string>();
+
+        var documento =
+            "VISTA PREVIA DEL COMPROBANTE DE ANULACION\n" +
+            "-------------------------------------------\n\n" +
+            $"Recibo N.: {recibo.Numero}\n" +
+            $"Fecha del recibo: {recibo.FechaEmision.LocalDateTime:dd/MM/yyyy HH:mm}\n" +
+            $"Importe original: {recibo.Total:N2}\n" +
+            $"Estado actual: {recibo.Estado}\n\n" +
+            "CONCEPTOS:\n" +
+            string.Join("\n", conceptos) +
+            "\n\nMOTIVO DE ANULACION:\n" +
+            motivo +
+            "\n\nResponsable: pendiente de autorizacion.\n" +
+            "Fecha de anulacion: todavia no registrada.\n\n" +
+            "-------------------------------------------\n" +
+            "ESTO ES UNA VISTA PREVIA.\n" +
+            "NO SE ANULO EL RECIBO.\n" +
+            "NO SE MODIFICARON PAGOS NI DEUDAS.";
+
+        MessageBox.Show(
+            documento,
+            "Mercadex - Comprobante preliminar",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+
+        TxtEstado.Text =
+            "Comprobante preliminar revisado. " +
+            "No se realizaron cambios en el servidor.";
     }
 }

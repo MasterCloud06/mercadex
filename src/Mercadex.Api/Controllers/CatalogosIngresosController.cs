@@ -1,6 +1,8 @@
-
 using Mercadex.Domain.Caja;
+using Mercadex.Domain.Cobranza;
 using Mercadex.Infrastructure.Persistence;
+
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,11 +14,13 @@ public sealed class CatalogosIngresosController : ControllerBase
 {
     private readonly MercadexDbContext _context;
 
-    public CatalogosIngresosController(MercadexDbContext context)
+    public CatalogosIngresosController(
+        MercadexDbContext context)
     {
         _context = context;
     }
 
+    // Consultar formas de pago y conceptos.
     [HttpGet]
     public async Task<IActionResult> Obtener()
     {
@@ -30,29 +34,111 @@ public sealed class CatalogosIngresosController : ControllerBase
 
         var conceptos = await _context.ConceptosCobro
             .AsNoTracking()
-            .ToListAsync();
-
-        var conceptosRespuesta = conceptos.Select(concepto =>
-        {
-            var tipo = concepto.GetType();
-
-            var nombre =
-                tipo.GetProperty("Nombre")?.GetValue(concepto)?.ToString()
-                ?? tipo.GetProperty("Descripcion")?.GetValue(concepto)?.ToString()
-                ?? tipo.GetProperty("Codigo")?.GetValue(concepto)?.ToString()
-                ?? concepto.Id.ToString();
-
-            return new
+            .OrderBy(concepto => concepto.Nombre)
+            .Select(concepto => new
             {
                 concepto.Id,
-                Nombre = nombre
-            };
-        });
+                concepto.Codigo,
+                concepto.Nombre,
+                concepto.Descripcion,
+                concepto.Activo
+            })
+            .ToListAsync();
 
         return Ok(new
         {
             FormasPago = formasPago,
-            Conceptos = conceptosRespuesta
+            Conceptos = conceptos
         });
     }
+
+    // Crear un concepto nuevo.
+    // POST: /api/ingresos/catalogos/conceptos
+    [HttpPost("conceptos")]
+    [Authorize(Roles = "Administrador")]
+    public async Task<IActionResult> CrearConcepto(
+        [FromBody] CrearConceptoCobroRequest solicitud)
+    {
+        if (string.IsNullOrWhiteSpace(solicitud.Codigo))
+        {
+            return BadRequest(new
+            {
+                mensaje = "Introduce el código del concepto."
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(solicitud.Nombre))
+        {
+            return BadRequest(new
+            {
+                mensaje = "Introduce el nombre del concepto."
+            });
+        }
+
+        var codigo = solicitud.Codigo
+            .Trim()
+            .ToUpperInvariant();
+
+        var nombre = solicitud.Nombre.Trim();
+
+        var nombreComparacion = nombre.ToUpperInvariant();
+
+        // Incluye conceptos inactivos para no duplicarlos.
+        var codigoExiste = await _context.ConceptosCobro
+            .AsNoTracking()
+            .AnyAsync(concepto =>
+                concepto.Codigo.ToUpper() == codigo);
+
+        if (codigoExiste)
+        {
+            return Conflict(new
+            {
+                mensaje =
+                    $"Ya existe un concepto con el código {codigo}."
+            });
+        }
+
+        var nombreExiste = await _context.ConceptosCobro
+            .AsNoTracking()
+            .AnyAsync(concepto =>
+                concepto.Nombre.ToUpper() == nombreComparacion);
+
+        if (nombreExiste)
+        {
+            return Conflict(new
+            {
+                mensaje =
+                    $"Ya existe un concepto con el nombre {nombre}."
+            });
+        }
+
+        var conceptoNuevo = new ConceptoCobro(
+            codigo,
+            nombre,
+            solicitud.Descripcion);
+
+        _context.ConceptosCobro.Add(conceptoNuevo);
+
+        await _context.SaveChangesAsync();
+
+        return StatusCode(
+            StatusCodes.Status201Created,
+            new
+            {
+                conceptoNuevo.Id,
+                conceptoNuevo.Codigo,
+                conceptoNuevo.Nombre,
+                conceptoNuevo.Descripcion,
+                conceptoNuevo.Activo
+            });
+    }
+}
+
+public sealed class CrearConceptoCobroRequest
+{
+    public string Codigo { get; set; } = string.Empty;
+
+    public string Nombre { get; set; } = string.Empty;
+
+    public string? Descripcion { get; set; }
 }

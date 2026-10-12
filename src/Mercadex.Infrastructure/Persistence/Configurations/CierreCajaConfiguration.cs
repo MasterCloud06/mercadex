@@ -26,6 +26,9 @@ public sealed class CierreCajaConfiguration :
         builder.Property(x => x.Diferencia).HasPrecision(18, 2).IsRequired();
 
         builder.Property(x => x.CantidadPagos).IsRequired();
+        builder.Property(x => x.CantidadEfectivo).IsRequired();
+        builder.Property(x => x.CantidadQr).IsRequired();
+        builder.Property(x => x.CantidadOtros).IsRequired();
 
         builder.Property(x => x.Responsable).HasMaxLength(120).IsRequired();
         builder.Property(x => x.Observacion).HasMaxLength(500);

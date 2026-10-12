@@ -20,7 +20,9 @@ public sealed class CierreCaja : Entity
         decimal efectivo,
         decimal qr,
         decimal otros,
-        int cantidadPagos,
+        int cantidadEfectivo,
+        int cantidadQr,
+        int cantidadOtros,
         decimal efectivoContado,
         string responsable,
         string? observacion,
@@ -32,7 +34,8 @@ public sealed class CierreCaja : Entity
         if (monedaId == Guid.Empty)
             throw new ArgumentException("La moneda es obligatoria.", nameof(monedaId));
 
-        if (efectivo < 0 || qr < 0 || otros < 0 || cantidadPagos < 0)
+        if (efectivo < 0 || qr < 0 || otros < 0 ||
+            cantidadEfectivo < 0 || cantidadQr < 0 || cantidadOtros < 0)
             throw new ArgumentException("Los totales del cierre no pueden ser negativos.");
 
         if (efectivoContado < 0)
@@ -63,7 +66,10 @@ public sealed class CierreCaja : Entity
         Qr = qr;
         Otros = otros;
         Total = efectivo + qr + otros;
-        CantidadPagos = cantidadPagos;
+        CantidadEfectivo = cantidadEfectivo;
+        CantidadQr = cantidadQr;
+        CantidadOtros = cantidadOtros;
+        CantidadPagos = cantidadEfectivo + cantidadQr + cantidadOtros;
         EfectivoContado = efectivoContado;
         Diferencia = diferencia;
         Responsable = responsable;
@@ -82,6 +88,12 @@ public sealed class CierreCaja : Entity
     public decimal Otros { get; private set; }
 
     public decimal Total { get; private set; }
+
+    public int CantidadEfectivo { get; private set; }
+
+    public int CantidadQr { get; private set; }
+
+    public int CantidadOtros { get; private set; }
 
     public int CantidadPagos { get; private set; }
 

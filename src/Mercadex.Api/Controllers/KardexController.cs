@@ -9,7 +9,6 @@ using Microsoft.EntityFrameworkCore;
 namespace Mercadex.Api.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Administrador")]
 [Route("api/kardex")]
 public sealed class KardexController : ControllerBase
 {

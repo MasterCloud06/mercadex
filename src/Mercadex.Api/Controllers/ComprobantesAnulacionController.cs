@@ -6,7 +6,6 @@ using Microsoft.EntityFrameworkCore;
 namespace Mercadex.Api.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Administrador")]
 [Route("api/comprobantes-anulacion")]
 public sealed class ComprobantesAnulacionController : ControllerBase
 {
@@ -20,7 +19,7 @@ public sealed class ComprobantesAnulacionController : ControllerBase
 
     // MERCADEX_CONSULTA_COMPROBANTES_ANULACION_V1
 
-    // Modulo de Mercadex 1.5: protegido por [Authorize(Roles = "Administrador")].
+    // Modulo de Mercadex 1.5 (sin autorizacion de administrador).
     // Ya no depende de variables de entorno ni del nombre de la base.
     private static bool EntornoPermitido() => true;
 

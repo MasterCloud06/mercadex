@@ -9,7 +9,6 @@ using Microsoft.EntityFrameworkCore;
 namespace Mercadex.Api.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Administrador")]
 [Route("api/obligaciones-correcciones")]
 public sealed class CorreccionesObligacionesController : ControllerBase
 {
@@ -23,7 +22,7 @@ public sealed class CorreccionesObligacionesController : ControllerBase
 
     // MERCADEX_AUDITORIA_DEUDAS_V1
 
-    // Modulo de Mercadex 1.5: protegido por [Authorize(Roles = "Administrador")].
+    // Modulo de Mercadex 1.5 (sin autorizacion de administrador).
     // Ya no depende de variables de entorno ni del nombre de la base.
     private static bool EntornoPermitido() => true;
 
@@ -257,7 +256,8 @@ public sealed class CorreccionesObligacionesController : ControllerBase
         var responsable =
             User.Identity?.Name ??
             User.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
-            User.FindFirst("sub")?.Value;
+            User.FindFirst("sub")?.Value ??
+            "Sistema";
 
         if (string.IsNullOrWhiteSpace(responsable) ||
             responsable.Length > 120)

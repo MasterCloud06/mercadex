@@ -55,7 +55,6 @@ public sealed class CatalogosIngresosController : ControllerBase
     // Crear un concepto nuevo.
     // POST: /api/ingresos/catalogos/conceptos
     [HttpPost("conceptos")]
-    [Authorize(Roles = "Administrador")]
     public async Task<IActionResult> CrearConcepto(
         [FromBody] CrearConceptoCobroRequest solicitud)
     {

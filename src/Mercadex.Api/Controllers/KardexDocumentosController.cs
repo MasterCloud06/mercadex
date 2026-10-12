@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 namespace Mercadex.Api.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Administrador")]
 [Route("api/kardex-documentos")]
 public sealed class KardexDocumentosController : ControllerBase
 {
@@ -292,7 +291,8 @@ public sealed class KardexDocumentosController : ControllerBase
         var responsable =
             User.Identity?.Name ??
             User.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
-            User.FindFirst("sub")?.Value;
+            User.FindFirst("sub")?.Value ??
+            "Sistema";
 
         if (string.IsNullOrWhiteSpace(responsable) ||
             responsable.Length > 120)

@@ -54,6 +54,31 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+// Panel web de caja: orígenes permitidos (separados por coma) en
+// MERCADEX_PANEL_ORIGINS. En desarrollo se permite el panel local (Vite).
+var origenesPanel = (builder.Configuration["MERCADEX_PANEL_ORIGINS"] ?? "")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    .ToList();
+
+if (builder.Environment.IsDevelopment())
+{
+    origenesPanel.Add("http://localhost:5173");
+    origenesPanel.Add("http://127.0.0.1:5173");
+}
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("panel", politica =>
+    {
+        if (origenesPanel.Count > 0)
+        {
+            politica.WithOrigins(origenesPanel.ToArray())
+                .WithHeaders("Authorization", "Content-Type")
+                .WithMethods("GET", "POST", "PUT");
+        }
+    });
+});
+
 
 
 // =====================================
@@ -222,6 +247,8 @@ builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>
 var app = builder.Build();
 
 app.UseForwardedHeaders();
+
+app.UseCors("panel");
 
 
 // Migraciones automaticas (opcional).

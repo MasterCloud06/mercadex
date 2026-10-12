@@ -4,25 +4,28 @@ using Mercadex.Application.Interfaces;
 using Mercadex.Domain.AppSocios;
 using Mercadex.Domain.Caja;
 using Mercadex.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace Mercadex.Api.Controllers;
 
 /// <summary>
-/// Lado de la caja (escritorio) de la app de socios: dar acceso a un
-/// socio, revisar los comprobantes enviados y configurar el QR de cobro.
-/// Protegido por la clave interna del escritorio (X-Mercadex-Key).
+/// Panel web de caja de la app de socios: dar acceso a un socio, revisar
+/// los comprobantes enviados y configurar el QR de cobro.
+/// Exige el inicio de sesión del administrador (token JWT); no usa la
+/// clave interna del escritorio porque un navegador no puede guardarla.
 /// </summary>
 [ApiController]
-public sealed class PagosAppController : ControllerBase
+[Authorize(Roles = "Administrador")]
+public sealed class PanelCajaController : ControllerBase
 {
     private static readonly TimeSpan ZonaBolivia = TimeSpan.FromHours(-4);
 
     private readonly MercadexDbContext _db;
     private readonly ICajaService _caja;
 
-    public PagosAppController(MercadexDbContext db, ICajaService caja)
+    public PanelCajaController(MercadexDbContext db, ICajaService caja)
     {
         _db = db;
         _caja = caja;
@@ -40,7 +43,65 @@ public sealed class PagosAppController : ControllerBase
 
     // ===================================================== ACCESO DE SOCIOS
 
-    [HttpGet("api/cuentas-app/{socioId:guid}")]
+    /// <summary>
+    /// Busca socios por nombre, apellido o carnet, con sus casetas de
+    /// titular y el estado de su acceso a la app.
+    /// </summary>
+    [HttpGet("api/panel/socios")]
+    public async Task<IActionResult> Socios([FromQuery] string? buscar, CancellationToken ct)
+    {
+        var texto = buscar?.Trim().ToUpper() ?? "";
+        var ahora = DateTimeOffset.UtcNow;
+
+        var consulta = _db.Socios.AsNoTracking().Where(s => s.Activo);
+        if (texto.Length > 0)
+        {
+            consulta = consulta.Where(s =>
+                (s.Nombres + " " + s.Apellidos).ToUpper().Contains(texto) ||
+                s.DocumentoIdentidad.ToUpper().Contains(texto));
+        }
+
+        var socios = await consulta
+            .OrderBy(s => s.Apellidos).ThenBy(s => s.Nombres)
+            .Take(50)
+            .Select(s => new { s.Id, s.Nombres, s.Apellidos, s.DocumentoIdentidad, s.Telefono })
+            .ToListAsync(ct);
+
+        var ids = socios.Select(s => s.Id).ToList();
+
+        var casetas = await (
+                from a in _db.AsignacionesSocioCaseta.AsNoTracking()
+                join u in _db.UnidadesComerciales.AsNoTracking() on a.UnidadComercialId equals u.Id
+                where a.Activa && ids.Contains(a.SocioId)
+                select new { a.SocioId, u.Codigo })
+            .ToListAsync(ct);
+
+        var cuentas = await _db.CuentasSocioApp.AsNoTracking()
+            .Where(c => ids.Contains(c.SocioId))
+            .ToDictionaryAsync(c => c.SocioId, ct);
+
+        return Ok(socios.Select(s =>
+        {
+            cuentas.TryGetValue(s.Id, out var c);
+            var estado = c == null || !c.Activa ? "sin-acceso"
+                : c.TieneContrasena ? "activa"
+                : c.CodigoVigente(ahora) ? "codigo-pendiente"
+                : "codigo-vencido";
+
+            return new
+            {
+                id = s.Id,
+                nombre = $"{s.Nombres} {s.Apellidos}",
+                documento = s.DocumentoIdentidad,
+                telefono = s.Telefono,
+                casetas = casetas.Where(x => x.SocioId == s.Id).Select(x => x.Codigo).OrderBy(x => x.Length).ThenBy(x => x).ToList(),
+                estadoApp = estado,
+                ultimoAcceso = c?.UltimoAccesoUtc?.ToOffset(ZonaBolivia)
+            };
+        }));
+    }
+
+    [HttpGet("api/panel/cuentas/{socioId:guid}")]
     public async Task<IActionResult> EstadoCuenta(Guid socioId, CancellationToken ct)
     {
         var ahora = DateTimeOffset.UtcNow;
@@ -74,7 +135,7 @@ public sealed class PagosAppController : ControllerBase
     /// su contraseña deja de servir y debe activarla otra vez.
     /// El código solo se muestra en esta respuesta.
     /// </summary>
-    [HttpPost("api/cuentas-app/{socioId:guid}/codigo")]
+    [HttpPost("api/panel/cuentas/{socioId:guid}/codigo")]
     public async Task<IActionResult> GenerarCodigo(Guid socioId, CancellationToken ct)
     {
         var socio = await _db.Socios.AsNoTracking().FirstOrDefaultAsync(s => s.Id == socioId, ct);
@@ -110,7 +171,7 @@ public sealed class PagosAppController : ControllerBase
         });
     }
 
-    [HttpPost("api/cuentas-app/{socioId:guid}/desactivar")]
+    [HttpPost("api/panel/cuentas/{socioId:guid}/desactivar")]
     public async Task<IActionResult> Desactivar(Guid socioId, CancellationToken ct)
     {
         var cuenta = await _db.CuentasSocioApp.FirstOrDefaultAsync(c => c.SocioId == socioId, ct);
@@ -124,7 +185,7 @@ public sealed class PagosAppController : ControllerBase
 
     // ===================================================== COMPROBANTES
 
-    [HttpGet("api/pagos-app")]
+    [HttpGet("api/panel/pagos")]
     public async Task<IActionResult> Listar([FromQuery] string? estado, CancellationToken ct)
     {
         var filtro = estado?.ToLowerInvariant() switch
@@ -193,7 +254,7 @@ public sealed class PagosAppController : ControllerBase
         }));
     }
 
-    [HttpGet("api/pagos-app/{id:guid}/comprobante")]
+    [HttpGet("api/panel/pagos/{id:guid}/comprobante")]
     public async Task<IActionResult> Comprobante(Guid id, CancellationToken ct)
     {
         var p = await _db.PagosReportados.AsNoTracking()
@@ -208,7 +269,7 @@ public sealed class PagosAppController : ControllerBase
     /// Aprueba el comprobante: registra el cobro como pago QR con el número
     /// de transacción informado y emite el recibo, igual que en la caja.
     /// </summary>
-    [HttpPost("api/pagos-app/{id:guid}/aprobar")]
+    [HttpPost("api/panel/pagos/{id:guid}/aprobar")]
     public async Task<IActionResult> Aprobar(Guid id, [FromBody] RevisionRequest r, CancellationToken ct)
     {
         var pago = await _db.PagosReportados.FirstOrDefaultAsync(x => x.Id == id, ct);
@@ -256,7 +317,7 @@ public sealed class PagosAppController : ControllerBase
         });
     }
 
-    [HttpPost("api/pagos-app/{id:guid}/rechazar")]
+    [HttpPost("api/panel/pagos/{id:guid}/rechazar")]
     public async Task<IActionResult> Rechazar(Guid id, [FromBody] RevisionRequest r, CancellationToken ct)
     {
         var pago = await _db.PagosReportados.FirstOrDefaultAsync(x => x.Id == id, ct);
@@ -271,7 +332,7 @@ public sealed class PagosAppController : ControllerBase
 
     // ===================================================== QR DE COBRO
 
-    [HttpGet("api/configuracion-pago-app")]
+    [HttpGet("api/panel/configuracion-pago")]
     public async Task<IActionResult> Configuracion(CancellationToken ct)
     {
         var c = await _db.ConfiguracionPagoApp.AsNoTracking().FirstOrDefaultAsync(ct);
@@ -286,7 +347,7 @@ public sealed class PagosAppController : ControllerBase
         });
     }
 
-    [HttpPut("api/configuracion-pago-app")]
+    [HttpPut("api/panel/configuracion-pago")]
     [RequestSizeLimit(4 * 1024 * 1024)]
     public async Task<IActionResult> GuardarConfiguracion([FromBody] ConfiguracionRequest r, CancellationToken ct)
     {

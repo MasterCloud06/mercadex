@@ -30,31 +30,12 @@ public sealed class ReportesCajaController : ControllerBase
 
     private bool EntornoPermitido()
     {
-        if (Environment.GetEnvironmentVariable(
-            "MERCADEX_TARIFAS_DEV_MODE") != "SI")
-        {
-            return false;
-        }
-
-        var cadena = _db.Database.GetConnectionString();
-
-        if (string.IsNullOrWhiteSpace(cadena))
-            return false;
-
-        try
-        {
-            var pg =
-                new Npgsql.NpgsqlConnectionStringBuilder(cadena);
-
-            return pg.Host == "127.0.0.1" &&
-                   pg.Port == 5432 &&
-                   pg.Database == "mercadex_tarifas_dev" &&
-                   pg.Username == "mercadex_tarifas_app";
-        }
-        catch
-        {
-            return false;
-        }
+        return Environment.GetEnvironmentVariable(
+                "MERCADEX_ENABLE_V15") == "SI" &&
+               string.Equals(
+                   _db.Database.GetDbConnection().Database,
+                   "mercadex_db_4qha",
+                   StringComparison.OrdinalIgnoreCase);
     }
 
     [HttpGet]

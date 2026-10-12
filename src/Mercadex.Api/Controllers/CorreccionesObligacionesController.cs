@@ -26,31 +26,12 @@ public sealed class CorreccionesObligacionesController : ControllerBase
 
     private bool EntornoPermitido()
     {
-        if (Environment.GetEnvironmentVariable(
-                "MERCADEX_TARIFAS_DEV_MODE") != "SI")
-        {
-            return false;
-        }
-
-        var cadena = _db.Database.GetConnectionString();
-
-        if (string.IsNullOrWhiteSpace(cadena))
-            return false;
-
-        try
-        {
-            var destino =
-                new Npgsql.NpgsqlConnectionStringBuilder(cadena);
-
-            return destino.Host == "127.0.0.1" &&
-                   destino.Port == 5432 &&
-                   destino.Database == "mercadex_tarifas_dev" &&
-                   destino.Username == "mercadex_tarifas_app";
-        }
-        catch
-        {
-            return false;
-        }
+        return Environment.GetEnvironmentVariable(
+                "MERCADEX_ENABLE_V15") == "SI" &&
+               string.Equals(
+                   _db.Database.GetDbConnection().Database,
+                   "mercadex_db_4qha",
+                   StringComparison.OrdinalIgnoreCase);
     }
 
     // MERCADEX_LISTADO_DEUDAS_V1

@@ -27,8 +27,12 @@ public sealed class GeneradorCobranzaController
         // Nunca usar la generacion de precio uniforme
         // en el entorno de tarifas individuales.
 
-        if (Environment.GetEnvironmentVariable(
-                "MERCADEX_TARIFAS_DEV_MODE") == "SI")
+        if (
+            Environment.GetEnvironmentVariable(
+                "MERCADEX_TARIFAS_DEV_MODE") == "SI" ||
+            Environment.GetEnvironmentVariable(
+                "MERCADEX_ENABLE_V15") == "SI"
+        )
         {
             return Conflict(new
             {

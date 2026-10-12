@@ -373,42 +373,18 @@ public sealed class TarifasUnidadController : ControllerBase
         [FromBody] GenerarMensualTarifasRequest? solicitud,
         CancellationToken cancellationToken)
     {
-        // Este modulo aun esta en desarrollo.
-        // Nunca permitir su ejecucion fuera de la base local.
-
         if (Environment.GetEnvironmentVariable(
-                "MERCADEX_TARIFAS_DEV_MODE") != "SI")
+                "MERCADEX_ENABLE_V15") != "SI" ||
+            !string.Equals(
+                _db.Database.GetDbConnection().Database,
+                "mercadex_db_4qha",
+                StringComparison.OrdinalIgnoreCase))
         {
             return StatusCode(403, new
             {
-                mensaje = "Generacion disponible solo en desarrollo local."
+                mensaje = "Modulo no habilitado."
             });
         }
-
-        var conexion = _db.Database.GetConnectionString();
-
-        if (string.IsNullOrWhiteSpace(conexion))
-        {
-            return StatusCode(403, new
-            {
-                mensaje = "Conexion no autorizada."
-            });
-        }
-
-        var destino = new Npgsql.NpgsqlConnectionStringBuilder(
-            conexion);
-
-        if (destino.Host != "127.0.0.1" ||
-            destino.Port != 5432 ||
-            destino.Database != "mercadex_tarifas_dev" ||
-            destino.Username != "mercadex_tarifas_app")
-        {
-            return StatusCode(403, new
-            {
-                mensaje = "Solo se permite PostgreSQL local de pruebas."
-            });
-        }
-
         if (solicitud is null ||
             solicitud.ConceptoCobroId == Guid.Empty ||
             solicitud.Anio < 2000 ||

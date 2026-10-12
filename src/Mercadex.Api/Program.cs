@@ -1,4 +1,4 @@
-﻿using System.Threading.RateLimiting;
+using System.Threading.RateLimiting;
 using Mercadex.Application.Interfaces;
 using Mercadex.Application.Services;
 using Mercadex.Infrastructure.Persistence;
@@ -67,34 +67,24 @@ if (string.IsNullOrWhiteSpace(connectionString))
 }
 
 
-// MERCADEX_BACKEND_TARIFAS_LOCAL_ONLY
-// Proteccion temporal de la rama feature/tarifas-individuales.
-// Debe revisarse antes de cualquier despliegue futuro.
-
-if (Environment.GetEnvironmentVariable(
-        "MERCADEX_TARIFAS_DEV_MODE") != "SI")
+// MERCADEX 1.5 - PRODUCCION CONTROLADA
+if (Environment.GetEnvironmentVariable("MERCADEX_ENABLE_V15") != "SI")
 {
     throw new InvalidOperationException(
-        "Backend de tarifas: solo permitido en modo local de pruebas.");
+        "Falta habilitar MERCADEX_ENABLE_V15=SI.");
 }
 
-var conexionDev = new Npgsql.NpgsqlConnectionStringBuilder(
-    connectionString);
+var destinoProduccion =
+    new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
 
 if (!string.Equals(
-        conexionDev.Host,
-        "127.0.0.1",
-        StringComparison.OrdinalIgnoreCase) ||
-    conexionDev.Port != 5432 ||
-    conexionDev.Database != "mercadex_tarifas_dev" ||
-    conexionDev.Username != "mercadex_tarifas_app")
+        destinoProduccion.Database,
+        "mercadex_db_4qha",
+        StringComparison.OrdinalIgnoreCase))
 {
     throw new InvalidOperationException(
-        "Backend de tarifas: base de datos no autorizada.");
+        "La base configurada no es la base Mercadex autorizada.");
 }
-
-// Escuchar exclusivamente en la computadora local.
-builder.WebHost.UseUrls("http://127.0.0.1:5189");
 builder.Services.AddDbContext<MercadexDbContext>(
     options =>
         options.UseNpgsql(connectionString));

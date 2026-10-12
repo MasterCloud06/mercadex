@@ -22,6 +22,8 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.HasSequence("numeracion_egresos");
+
             modelBuilder.Entity("Mercadex.Domain.Caja.CierreCaja", b =>
                 {
                     b.Property<Guid>("Id")
@@ -532,6 +534,11 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<long>("Numero")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValueSql("nextval('numeracion_egresos')");
+
                     b.Property<string>("NumeroComprobante")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -547,6 +554,9 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.HasIndex("Fecha");
 
                     b.HasIndex("MonedaId");
+
+                    b.HasIndex("Numero")
+                        .IsUnique();
 
                     b.ToTable("egresos", (string)null);
                 });

@@ -6,6 +6,7 @@ using Mercadex.Domain.Socios;
 using Mercadex.Domain.Comercial;
 using Microsoft.EntityFrameworkCore;
 using Mercadex.Domain.Finanzas;
+using Mercadex.Domain.AppSocios;
 
 namespace Mercadex.Infrastructure.Persistence;
 
@@ -82,6 +83,15 @@ public sealed class MercadexDbContext : DbContext
 
 public DbSet<Egreso> Egresos =>
     Set<Egreso>();
+
+    public DbSet<CuentaSocioApp> CuentasSocioApp =>
+        Set<CuentaSocioApp>();
+
+    public DbSet<PagoReportado> PagosReportados =>
+        Set<PagoReportado>();
+
+    public DbSet<ConfiguracionPagoApp> ConfiguracionPagoApp =>
+        Set<ConfiguracionPagoApp>();
 
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)

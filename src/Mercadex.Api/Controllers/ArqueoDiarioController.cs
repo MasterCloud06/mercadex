@@ -61,7 +61,7 @@ public sealed class ArqueoDiarioController : ControllerBase
                     cantidadQr = r.CantidadQr,
                     cantidadOtros = r.CantidadOtros,
                     cerrado = cierre != null,
-                    cierre = cierre == null ? null : AResumenCierre(cierre, r.Moneda),
+                    cierre = cierre == null ? null : (object?)AResumenCierre(cierre, r.Moneda),
                     // Cobros o anulaciones posteriores al cierre.
                     cambiosPosteriores = cierre != null &&
                         (cierre.Total != r.Total || cierre.CantidadPagos != r.Cantidad)
@@ -91,7 +91,7 @@ public sealed class ArqueoDiarioController : ControllerBase
                 cantidadQr = 0,
                 cantidadOtros = 0,
                 cerrado = true,
-                cierre = AResumenCierre(cierre, codigo.Codigo),
+                cierre = (object?)AResumenCierre(cierre, codigo.Codigo),
                 cambiosPosteriores = true
             });
         }

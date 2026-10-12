@@ -61,6 +61,25 @@ public sealed class UnitOfWork : IUnitOfWork
         _transaction = null;
     }
 
+    
+    // MERCADEX_ANULACION_AUDITADA_V2
+    // Se utiliza la transaccion ya iniciada por CajaService.
+
+    public Task RegistrarComprobanteAnulacionAsync(
+        Mercadex.Domain.Caja.ComprobanteAnulacionRecibo comprobante)
+    {
+        ArgumentNullException.ThrowIfNull(comprobante);
+
+        if (_transaction is null)
+        {
+            throw new InvalidOperationException(
+                "La anulacion requiere una transaccion activa.");
+        }
+
+        _context.ComprobantesAnulacion.Add(comprobante);
+
+        return Task.CompletedTask;
+    }
     public async Task RollbackAsync()
     {
         if (_transaction is null)

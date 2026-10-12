@@ -38,6 +38,22 @@ public sealed class ObligacionConfiguration :
         builder.Ignore(x => x.EstaPendiente);
         builder.Ignore(x => x.EstaPagada);
 
+        // Una obligacion por caseta, concepto y periodo.
+        // No afecta obligaciones sin periodo mensual.
+        builder.HasIndex(x => new
+            {
+                x.UnidadComercialId,
+                x.ConceptoCobroId,
+                x.PeriodoAnio,
+                x.PeriodoMes
+            })
+            .HasDatabaseName(
+                "UX_obligaciones_unidad_concepto_periodo")
+            .IsUnique()
+            .HasFilter(
+                "\"PeriodoAnio\" IS NOT NULL AND \"PeriodoMes\" IS NOT NULL");
+
+
         builder.HasOne<UnidadComercial>()
             .WithMany()
             .HasForeignKey(x => x.UnidadComercialId)

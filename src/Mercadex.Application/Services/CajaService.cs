@@ -211,6 +211,21 @@ anuladoPor = anuladoPor.Trim();
             "El motivo no puede superar 500 caracteres.");
     }
 
+    
+    // MERCADEX_ANULACION_AUDITADA_V2
+    // Validaciones adicionales del comprobante.
+
+    if (motivo.Length < 5)
+    {
+        throw new ArgumentException(
+            "El motivo debe tener al menos 5 caracteres.");
+    }
+
+    if (anuladoPor.Length > 120)
+    {
+        throw new ArgumentException(
+            "El responsable no puede superar 120 caracteres.");
+    }
     await _unitOfWork.BeginTransactionAsync();
 
     try
@@ -325,6 +340,31 @@ var reciboAnulado =
 
         // 5. Confirmar todo junto.
 
+        
+        // Registrar comprobante de anulacion.
+        // No se realiza Commit adicional.
+        // MERCADEX_ANULACION_AUDITADA_V2
+
+        var comprobanteAnulacion =
+            new Mercadex.Domain.Caja.ComprobanteAnulacionRecibo(
+                recibo.Id,
+                Convert.ToInt64(recibo.Numero),
+                recibo.UnidadComercialId,
+                recibo.PagoId,
+                pago.MonedaId,
+                Convert.ToDecimal(recibo.Total),
+                FechaComprobanteAnulacion.Convertir(
+                    recibo.FechaEmision),
+                DateTimeOffset.UtcNow,
+                motivo,
+                anuladoPor);
+
+        await _unitOfWork.RegistrarComprobanteAnulacionAsync(
+            comprobanteAnulacion);
+
+        // El Commit existente guardara el comprobante
+        // junto con la anulacion del recibo, del pago
+        // y la restitucion de las obligaciones.
         await _unitOfWork.CommitAsync();
 
         return true;

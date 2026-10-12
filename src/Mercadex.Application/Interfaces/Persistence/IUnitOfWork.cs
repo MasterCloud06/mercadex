@@ -9,5 +9,9 @@ public interface IUnitOfWork
 
     Task CommitAsync();
 
+    
+    // MERCADEX_ANULACION_AUDITADA_V2
+    Task RegistrarComprobanteAnulacionAsync(
+        Mercadex.Domain.Caja.ComprobanteAnulacionRecibo comprobante);
     Task RollbackAsync();
 }

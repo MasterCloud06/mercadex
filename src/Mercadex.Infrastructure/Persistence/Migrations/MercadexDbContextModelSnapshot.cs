@@ -22,6 +22,77 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.HasSequence("numeracion_egresos");
+
+            modelBuilder.Entity("Mercadex.Domain.Caja.CierreCaja", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("CantidadEfectivo")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CantidadOtros")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CantidadPagos")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CantidadQr")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Diferencia")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("Efectivo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("EfectivoContado")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<DateTimeOffset>("FechaRegistroUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MonedaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Observacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal>("Otros")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("Qr")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Responsable")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MonedaId");
+
+                    b.HasIndex("Fecha", "MonedaId")
+                        .IsUnique();
+
+                    b.ToTable("cierres_caja", (string)null);
+                });
+
             modelBuilder.Entity("Mercadex.Domain.Caja.ComprobanteAnulacionRecibo", b =>
                 {
                     b.Property<Guid>("Id")
@@ -463,6 +534,11 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<long>("Numero")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValueSql("nextval('numeracion_egresos')");
+
                     b.Property<string>("NumeroComprobante")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -478,6 +554,9 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.HasIndex("Fecha");
 
                     b.HasIndex("MonedaId");
+
+                    b.HasIndex("Numero")
+                        .IsUnique();
 
                     b.ToTable("egresos", (string)null);
                 });
@@ -724,6 +803,15 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("kardex_casetas", "public");
+                });
+
+            modelBuilder.Entity("Mercadex.Domain.Caja.CierreCaja", b =>
+                {
+                    b.HasOne("Mercadex.Domain.Cobranza.Moneda", null)
+                        .WithMany()
+                        .HasForeignKey("MonedaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Mercadex.Domain.Caja.ComprobanteAnulacionRecibo", b =>

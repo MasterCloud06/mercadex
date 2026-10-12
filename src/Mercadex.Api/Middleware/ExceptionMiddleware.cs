@@ -51,6 +51,19 @@ public sealed class ExceptionMiddleware
                 HttpStatusCode.Conflict,
                 "Ya existe un socio registrado con ese documento de identidad.");
         }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is PostgresException
+            {
+                SqlState: PostgresErrorCodes.UniqueViolation,
+                ConstraintName: "UX_obligaciones_unidad_concepto_periodo"
+            })
+        {
+            await HandleExceptionAsync(
+                context,
+                HttpStatusCode.Conflict,
+                "La unidad ya tiene una deuda de ese concepto para ese mes y año. " +
+                "Si es un cobro que se repite en el mes, marque \"Cargo eventual (sin período)\".");
+        }
         catch (Exception ex)
         {
             _logger.LogError(

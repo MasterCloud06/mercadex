@@ -219,6 +219,9 @@ if (app.Configuration.GetValue<bool>("MERCADEX_APLICAR_MIGRACIONES"))
 
 app.UseMiddleware<Mercadex.Api.Middleware.ExceptionMiddleware>();
 
+// Clave interna de la aplicación (solo si MERCADEX_API_KEY está configurada).
+app.UseMiddleware<Mercadex.Api.Middleware.ClaveAppMiddleware>();
+
 
 if (app.Environment.IsDevelopment())
 {

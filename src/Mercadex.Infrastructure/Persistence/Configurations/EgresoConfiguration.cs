@@ -18,6 +18,14 @@ public sealed class EgresoConfiguration
         builder.Property(x => x.Id)
             .ValueGeneratedNever();
 
+        // Numeración correlativa propia de egresos.
+        builder.Property(x => x.Numero)
+            .HasDefaultValueSql("nextval('numeracion_egresos')")
+            .ValueGeneratedOnAdd();
+
+        builder.HasIndex(x => x.Numero)
+            .IsUnique();
+
         builder.Property(x => x.Fecha)
             .IsRequired();
 

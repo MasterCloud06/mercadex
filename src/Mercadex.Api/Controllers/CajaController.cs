@@ -75,21 +75,15 @@ public sealed class CajaController : ControllerBase
     }
 
 [HttpPut("recibos/{id:guid}/anular")]
-[Authorize(Roles = "Administrador")]
 public async Task<IActionResult> AnularRecibo(
     Guid id,
     AnularReciboDto dto)
 {
-    var usuario = User.Identity?.Name;
-
-    if (string.IsNullOrWhiteSpace(usuario))
-    {
-        return Unauthorized(new
-        {
-            mensaje =
-                "No se pudo identificar al usuario autenticado."
-        });
-    }
+    // Sin inicio de sesion: si no hay usuario autenticado,
+    // el comprobante registra "Sistema" como responsable.
+    var usuario = string.IsNullOrWhiteSpace(User.Identity?.Name)
+        ? "Sistema"
+        : User.Identity!.Name!;
 
     var resultado =
         await _service.AnularReciboAsync(

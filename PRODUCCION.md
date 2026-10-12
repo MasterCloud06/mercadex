@@ -21,6 +21,7 @@ entre entornos se hace solo con configuración.
 | `MERCADEX_ADMIN_USER` | Sí (login Kardex/Tarifas/Reportes) | Usuario administrador |
 | `MERCADEX_ADMIN_PASSWORD` | Sí | Contraseña del administrador |
 | `MERCADEX_APLICAR_MIGRACIONES` | Recomendado | `true` → aplica migraciones al iniciar |
+| `MERCADEX_API_KEY` | Recomendado | Clave interna. Si existe, la API solo atiende al instalador compilado con la misma clave (`MERCADEX_APP_KEY` al compilar). `/api/health` queda libre. |
 | `MERCADEX_KARDEX_STORAGE_PATH` | Para documentos Kardex | Ruta absoluta de un *Persistent Disk* (p. ej. `/var/data/kardex`) |
 
 Variables que ya **no** se usan y se pueden borrar: `MERCADEX_ENABLE_V15`, `MERCADEX_TARIFAS_DEV_MODE`.
@@ -58,3 +59,12 @@ dotnet run --project Desktop/Mercadex.Desktop.App
 ```
 
 Nunca poner credenciales de la base de producción en `appsettings*.json` ni en el repositorio.
+
+## Clave interna de la aplicación
+
+1. Generar una clave larga (PowerShell): `[Convert]::ToBase64String((1..48 | % {Get-Random -Max 256}) -as [byte[]])`.
+2. Compilar el instalador con `$env:MERCADEX_APP_KEY = "<clave>"` antes de `dotnet publish`.
+3. Publicar el instalador y esperar a que las cajas se actualicen (la actualización es obligatoria).
+4. Recién entonces poner la misma clave en Render como `MERCADEX_API_KEY`.
+
+Sin `MERCADEX_API_KEY` (desarrollo local) la API no exige la clave.

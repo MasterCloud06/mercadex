@@ -31,3 +31,6 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet build Desktop/Mercadex.Desktop.App/Mercadex.Desktop.App.csproj -c Release
+      - name: Abrir todas las pantallas (prueba de humo de la interfaz)
+        timeout-minutes: 10
+        run: dotnet test tests/Mercadex.Desktop.Tests/Mercadex.Desktop.Tests.csproj -c Release --logger "console;verbosity=normal"

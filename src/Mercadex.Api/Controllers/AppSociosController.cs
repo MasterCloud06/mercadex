@@ -444,7 +444,7 @@ public sealed class AppSociosController : ControllerBase
             .ToListAsync(ct);
 
         return filas
-            .Select(u => (u.Id, u.Codigo, u.Bloque, u.Tipo.ToString()))
+            .Select(u => (u.Id, u.Codigo, (string?)u.Bloque, u.Tipo.ToString()))
             .ToList();
     }
 

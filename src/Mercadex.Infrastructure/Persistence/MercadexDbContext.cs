@@ -89,6 +89,11 @@ public DbSet<Egreso> Egresos =>
         base.OnModelCreating(modelBuilder);
 
 
+        // Secuencia para el número de comprobante de egreso.
+        modelBuilder.HasSequence<long>("numeracion_egresos")
+            .StartsAt(1)
+            .IncrementsBy(1);
+
         modelBuilder.ApplyConfigurationsFromAssembly(
             typeof(MercadexDbContext).Assembly);
     }

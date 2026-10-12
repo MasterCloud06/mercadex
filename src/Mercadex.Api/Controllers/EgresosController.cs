@@ -82,6 +82,7 @@ public sealed class EgresosController : ControllerBase
                 .Select(x => new EgresoDto
                 {
                     Id = x.Id,
+                    Numero = x.Numero,
                     Fecha = x.Fecha,
                     Categoria = x.Categoria,
                     Concepto = x.Concepto,
@@ -123,6 +124,7 @@ public async Task<ActionResult<
             .Select(x => new EgresoDto
             {
                 Id = x.Id,
+                Numero = x.Numero,
                 Fecha = x.Fecha,
                 Categoria = x.Categoria,
                 Concepto = x.Concepto,
@@ -163,6 +165,7 @@ public async Task<ActionResult<
                 .Select(x => new EgresoDto
                 {
                     Id = x.Id,
+                    Numero = x.Numero,
                     Fecha = x.Fecha,
                     Categoria = x.Categoria,
                     Concepto = x.Concepto,
@@ -208,6 +211,21 @@ public async Task<ActionResult<
                 "Debe seleccionar una moneda.");
         }
 
+        var hoyBolivia = DateOnly.FromDateTime(
+            DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(-4)).DateTime);
+
+        if (request.Fecha == default)
+        {
+            return BadRequest(
+                "Debe indicar la fecha del egreso.");
+        }
+
+        if (request.Fecha > hoyBolivia)
+        {
+            return BadRequest(
+                "La fecha del egreso no puede ser posterior a hoy.");
+        }
+
         var monedaExiste =
             await _context.Monedas
                 .AsNoTracking()
@@ -249,6 +267,7 @@ public async Task<ActionResult<
             new EgresoDto
             {
                 Id = egreso.Id,
+                Numero = egreso.Numero,
                 Fecha = egreso.Fecha,
                 Categoria = egreso.Categoria,
                 Concepto = egreso.Concepto,
@@ -389,6 +408,8 @@ public async Task<ActionResult<
 public sealed class EgresoDto
 {
     public Guid Id { get; set; }
+
+    public long Numero { get; set; }
 
     public DateOnly Fecha { get; set; }
 

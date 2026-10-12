@@ -64,6 +64,19 @@ public sealed class Egreso
             throw new ArgumentException(
                 "El beneficiario no puede superar los 200 caracteres.");
 
+        // "Otro" (versiones anteriores) se normaliza a "Otros".
+        if (string.Equals(formaPago, "Otro", StringComparison.OrdinalIgnoreCase))
+            formaPago = "Otros";
+
+        var formaValida = FormasPagoValidas.FirstOrDefault(f =>
+            string.Equals(f, formaPago, StringComparison.OrdinalIgnoreCase));
+
+        if (formaValida is null)
+            throw new ArgumentException(
+                "Forma de pago no válida. Use: " + string.Join(", ", FormasPagoValidas) + ".");
+
+        formaPago = formaValida;
+
         if (formaPago.Length > 50)
             throw new ArgumentException(
                 "La forma de pago no puede superar los 50 caracteres.");
@@ -100,7 +113,14 @@ public sealed class Egreso
         Anulado = false;
     }
 
+    // Formas de pago aceptadas para egresos.
+    public static readonly IReadOnlyList<string> FormasPagoValidas =
+        new[] { "Efectivo", "QR", "Transferencia", "Cheque", "Otros" };
+
     public Guid Id { get; private set; }
+
+    /// <summary>Número correlativo del comprobante de egreso (lo asigna la base).</summary>
+    public long Numero { get; private set; }
 
     public DateOnly Fecha { get; private set; }
 

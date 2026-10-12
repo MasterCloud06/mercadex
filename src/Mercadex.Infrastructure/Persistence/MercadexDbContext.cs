@@ -1,4 +1,4 @@
-﻿using Mercadex.Infrastructure.Persistence.Entities;
+using Mercadex.Infrastructure.Persistence.Entities;
 using Mercadex.Domain.Caja;
 using Mercadex.Domain.Cobranza;
 using Mercadex.Domain.Organizacion;
@@ -20,6 +20,9 @@ public sealed class MercadexDbContext : DbContext
 
     public DbSet<Socio> Socios =>
         Set<Socio>();
+
+    public DbSet<DocumentoKardex> DocumentosKardex =>
+        Set<DocumentoKardex>();
 
 
     public DbSet<Pasillo> Pasillos =>
@@ -49,6 +52,12 @@ public sealed class MercadexDbContext : DbContext
     public DbSet<Obligacion> Obligaciones =>
         Set<Obligacion>();
 
+    public DbSet<CambioMontoObligacion> CambiosMontoObligacion =>
+        Set<CambioMontoObligacion>();
+
+    public DbSet<TarifaUnidad> TarifasUnidad =>
+        Set<TarifaUnidad>();
+
 
     public DbSet<Pago> Pagos =>
         Set<Pago>();
@@ -56,6 +65,9 @@ public sealed class MercadexDbContext : DbContext
 
     public DbSet<Recibo> Recibos =>
         Set<Recibo>();
+
+    public DbSet<ComprobanteAnulacionRecibo> ComprobantesAnulacion =>
+        Set<ComprobanteAnulacionRecibo>();
 
 
     public DbSet<DetalleRecibo> DetallesRecibo =>

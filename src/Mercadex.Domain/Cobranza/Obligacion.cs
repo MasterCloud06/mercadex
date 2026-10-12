@@ -1,4 +1,4 @@
-﻿using Mercadex.Domain.Common;
+using Mercadex.Domain.Common;
 
 namespace Mercadex.Domain.Cobranza;
 
@@ -129,6 +129,35 @@ public sealed class Obligacion : Entity
     public bool EstaPagada =>
         Estado == EstadoObligacion.Pagada;
 
+
+    // Solo se permite corregir una obligacion pendiente.
+    // El controlador debe comprobar ademas que no existan
+    // pagos o recibos asociados antes de ejecutar el cambio.
+
+    public void CorregirMonto(decimal nuevoMonto)
+    {
+        if (Estado != EstadoObligacion.Pendiente)
+        {
+            throw new InvalidOperationException(
+                "No se puede modificar una obligacion pagada o anulada.");
+        }
+
+        if (nuevoMonto <= 0 ||
+            decimal.Round(nuevoMonto, 2) != nuevoMonto)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(nuevoMonto),
+                "El monto debe ser positivo y tener maximo dos decimales.");
+        }
+
+        if (Monto == nuevoMonto)
+        {
+            throw new InvalidOperationException(
+                "El nuevo monto debe ser diferente al anterior.");
+        }
+
+        Monto = nuevoMonto;
+    }
 
     public void MarcarComoPagada()
     {

@@ -22,6 +22,64 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Mercadex.Domain.Caja.ComprobanteAnulacionRecibo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("FechaAnulacionUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("FechaEmisionRecibo")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MonedaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("MontoTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<long>("NumeroRecibo")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("PagoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ReciboId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Referencia")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<string>("Responsable")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid>("UnidadComercialId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FechaAnulacionUtc");
+
+                    b.HasIndex("ReciboId")
+                        .IsUnique();
+
+                    b.HasIndex("Referencia")
+                        .IsUnique();
+
+                    b.ToTable("comprobantes_anulacion_recibo", (string)null);
+                });
+
             modelBuilder.Entity("Mercadex.Domain.Caja.DetalleRecibo", b =>
                 {
                     b.Property<Guid>("Id")
@@ -153,6 +211,42 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.ToTable("recibos", (string)null);
                 });
 
+            modelBuilder.Entity("Mercadex.Domain.Cobranza.CambioMontoObligacion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("FechaUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("MontoAnterior")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("MontoNuevo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("ObligacionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Responsable")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ObligacionId", "FechaUtc");
+
+                    b.ToTable("cambios_monto_obligacion", (string)null);
+                });
+
             modelBuilder.Entity("Mercadex.Domain.Cobranza.ConceptoCobro", b =>
                 {
                     b.Property<Guid>("Id")
@@ -257,7 +351,45 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ConceptoCobroId", "PeriodoAnio", "PeriodoMes");
 
+                    b.HasIndex("UnidadComercialId", "ConceptoCobroId", "PeriodoAnio", "PeriodoMes")
+                        .IsUnique()
+                        .HasDatabaseName("UX_obligaciones_unidad_concepto_periodo")
+                        .HasFilter("\"PeriodoAnio\" IS NOT NULL AND \"PeriodoMes\" IS NOT NULL");
+
                     b.ToTable("obligaciones", (string)null);
+                });
+
+            modelBuilder.Entity("Mercadex.Domain.Cobranza.TarifaUnidad", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ConceptoCobroId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("FechaActualizacionUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MonedaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("UnidadComercialId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConceptoCobroId");
+
+                    b.HasIndex("MonedaId");
+
+                    b.HasIndex("UnidadComercialId", "ConceptoCobroId")
+                        .IsUnique();
+
+                    b.ToTable("tarifas_unidad", (string)null);
                 });
 
             modelBuilder.Entity("Mercadex.Domain.Comercial.AsignacionSocioCaseta", b =>
@@ -441,6 +573,63 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.ToTable("unidades_comerciales", (string)null);
                 });
 
+            modelBuilder.Entity("Mercadex.Domain.Socios.DocumentoKardex", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ClaveArchivo")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset>("FechaRegistroUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("NombreArchivo")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("RegistradoPor")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("SocioId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("TamanoBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Tipo")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TipoContenido")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("UnidadComercialId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClaveArchivo")
+                        .IsUnique();
+
+                    b.HasIndex("UnidadComercialId");
+
+                    b.HasIndex("SocioId", "Tipo");
+
+                    b.ToTable("documentos_kardex", (string)null);
+                });
+
             modelBuilder.Entity("Mercadex.Domain.Socios.Socio", b =>
                 {
                     b.Property<Guid>("Id")
@@ -537,6 +726,15 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.ToTable("kardex_casetas", "public");
                 });
 
+            modelBuilder.Entity("Mercadex.Domain.Caja.ComprobanteAnulacionRecibo", b =>
+                {
+                    b.HasOne("Mercadex.Domain.Caja.Recibo", null)
+                        .WithMany()
+                        .HasForeignKey("ReciboId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Mercadex.Domain.Caja.DetalleRecibo", b =>
                 {
                     b.HasOne("Mercadex.Domain.Cobranza.ConceptoCobro", null)
@@ -582,7 +780,37 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Mercadex.Domain.Cobranza.CambioMontoObligacion", b =>
+                {
+                    b.HasOne("Mercadex.Domain.Cobranza.Obligacion", null)
+                        .WithMany()
+                        .HasForeignKey("ObligacionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Mercadex.Domain.Cobranza.Obligacion", b =>
+                {
+                    b.HasOne("Mercadex.Domain.Cobranza.ConceptoCobro", null)
+                        .WithMany()
+                        .HasForeignKey("ConceptoCobroId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mercadex.Domain.Cobranza.Moneda", null)
+                        .WithMany()
+                        .HasForeignKey("MonedaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mercadex.Domain.Organizacion.UnidadComercial", null)
+                        .WithMany()
+                        .HasForeignKey("UnidadComercialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Mercadex.Domain.Cobranza.TarifaUnidad", b =>
                 {
                     b.HasOne("Mercadex.Domain.Cobranza.ConceptoCobro", null)
                         .WithMany()
@@ -632,6 +860,20 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.HasOne("Mercadex.Domain.Organizacion.Pasillo", null)
                         .WithMany()
                         .HasForeignKey("PasilloId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Mercadex.Domain.Socios.DocumentoKardex", b =>
+                {
+                    b.HasOne("Mercadex.Domain.Socios.Socio", null)
+                        .WithMany()
+                        .HasForeignKey("SocioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mercadex.Domain.Organizacion.UnidadComercial", null)
+                        .WithMany()
+                        .HasForeignKey("UnidadComercialId")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 

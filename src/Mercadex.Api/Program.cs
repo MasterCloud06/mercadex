@@ -39,8 +39,7 @@ builder.Services
                 ValidIssuer = "Mercadex",
 
                 ValidateAudience = true,
-                // Escritorio (administrador) y app móvil de socios.
-                ValidAudiences = new[] { "Mercadex.Desktop", "Mercadex.App" },
+                ValidAudience = "Mercadex.Desktop",
 
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey =
@@ -173,23 +172,6 @@ builder.Services.AddScoped<
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = 429;
-
-    // App de socios: muchas personas pueden compartir la IP del operador
-    // móvil, por eso el límite por IP es más amplio; cada cuenta además
-    // se bloquea 15 minutos tras 5 intentos fallidos.
-    options.AddPolicy("app-acceso", context =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey:
-                context.Connection.RemoteIpAddress?
-                    .ToString() ?? "desconocida",
-
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 30,
-                Window = TimeSpan.FromMinutes(5),
-                QueueLimit = 0,
-                AutoReplenishment = true
-            }));
 
     options.AddPolicy("login", context =>
         RateLimitPartition.GetFixedWindowLimiter(

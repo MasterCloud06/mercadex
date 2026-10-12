@@ -1,4 +1,4 @@
-﻿using System.Threading.RateLimiting;
+using System.Threading.RateLimiting;
 using Mercadex.Application.Interfaces;
 using Mercadex.Application.Services;
 using Mercadex.Infrastructure.Persistence;
@@ -67,34 +67,33 @@ if (string.IsNullOrWhiteSpace(connectionString))
 }
 
 
-// MERCADEX_BACKEND_TARIFAS_LOCAL_ONLY
-// Proteccion temporal de la rama feature/tarifas-individuales.
-// Debe revisarse antes de cualquier despliegue futuro.
+// MERCADEX 1.5.0 - ENTORNO STAGING
+// No permite utilizar accidentalmente la base de produccion.
 
-if (Environment.GetEnvironmentVariable(
-        "MERCADEX_TARIFAS_DEV_MODE") != "SI")
-{
-    throw new InvalidOperationException(
-        "Backend de tarifas: solo permitido en modo local de pruebas.");
-}
-
-var conexionDev = new Npgsql.NpgsqlConnectionStringBuilder(
-    connectionString);
+var entornoMercadex =
+    Environment.GetEnvironmentVariable("MERCADEX_DEPLOYMENT");
 
 if (!string.Equals(
-        conexionDev.Host,
-        "127.0.0.1",
-        StringComparison.OrdinalIgnoreCase) ||
-    conexionDev.Port != 5432 ||
-    conexionDev.Database != "mercadex_tarifas_dev" ||
-    conexionDev.Username != "mercadex_tarifas_app")
+        entornoMercadex,
+        "staging",
+        StringComparison.OrdinalIgnoreCase))
 {
     throw new InvalidOperationException(
-        "Backend de tarifas: base de datos no autorizada.");
+        "Esta compilacion solo permite MERCADEX_DEPLOYMENT=staging.");
 }
 
-// Escuchar exclusivamente en la computadora local.
-builder.WebHost.UseUrls("http://127.0.0.1:5189");
+var conexionStaging =
+    new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
+
+if (string.IsNullOrWhiteSpace(conexionStaging.Database) ||
+    !System.Text.RegularExpressions.Regex.IsMatch(
+        conexionStaging.Database,
+        "dev|staging|test",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+{
+    throw new InvalidOperationException(
+        "La base de datos debe ser exclusiva de desarrollo.");
+}
 builder.Services.AddDbContext<MercadexDbContext>(
     options =>
         options.UseNpgsql(connectionString));

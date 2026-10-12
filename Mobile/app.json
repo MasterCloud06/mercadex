@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "Mercadex",
+    "slug": "mercadex-socios",
+    "scheme": "mercadex",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#163A5B"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "bo.mercadex.socios",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Para fotografiar el comprobante de pago.",
+        "NSPhotoLibraryUsageDescription": "Para adjuntar la captura del comprobante de pago."
+      }
+    },
+    "android": {
+      "package": "bo.mercadex.socios",
+      "adaptiveIcon": {
+        "backgroundColor": "#163A5B",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Para adjuntar la captura del comprobante de pago.",
+          "cameraPermission": "Para fotografiar el comprobante de pago."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "https://mercadex-api.onrender.com"
+    }
+  }
+}

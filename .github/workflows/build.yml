@@ -34,3 +34,23 @@ jobs:
       - name: Abrir todas las pantallas (prueba de humo de la interfaz)
         timeout-minutes: 10
         run: dotnet test tests/Mercadex.Desktop.Tests/Mercadex.Desktop.Tests.csproj -c Release --logger "console;verbosity=normal"
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Mobile
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Mobile/package-lock.json
+      - run: npm ci
+      - name: Revisar tipos
+        run: npx tsc --noEmit
+      - name: Empaquetar la app (Android)
+        run: npx expo export --platform android --output-dir dist
+        env:
+          CI: 1

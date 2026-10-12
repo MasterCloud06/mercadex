@@ -373,18 +373,6 @@ public sealed class TarifasUnidadController : ControllerBase
         [FromBody] GenerarMensualTarifasRequest? solicitud,
         CancellationToken cancellationToken)
     {
-        if (Environment.GetEnvironmentVariable(
-                "MERCADEX_ENABLE_V15") != "SI" ||
-            !string.Equals(
-                _db.Database.GetDbConnection().Database,
-                "mercadex_db_4qha",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return StatusCode(403, new
-            {
-                mensaje = "Modulo no habilitado."
-            });
-        }
         if (solicitud is null ||
             solicitud.ConceptoCobroId == Guid.Empty ||
             solicitud.Anio < 2000 ||

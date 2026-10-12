@@ -20,15 +20,9 @@ public sealed class ComprobantesAnulacionController : ControllerBase
 
     // MERCADEX_CONSULTA_COMPROBANTES_ANULACION_V1
 
-    private bool EntornoPermitido()
-    {
-        return Environment.GetEnvironmentVariable(
-                "MERCADEX_ENABLE_V15") == "SI" &&
-               string.Equals(
-                   _db.Database.GetDbConnection().Database,
-                   "mercadex_db_4qha",
-                   StringComparison.OrdinalIgnoreCase);
-    }
+    // Modulo de Mercadex 1.5: protegido por [Authorize(Roles = "Administrador")].
+    // Ya no depende de variables de entorno ni del nombre de la base.
+    private static bool EntornoPermitido() => true;
 
     [HttpGet]
     public async Task<IActionResult> Listar(

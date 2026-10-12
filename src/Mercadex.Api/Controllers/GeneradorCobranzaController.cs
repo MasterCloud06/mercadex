@@ -20,31 +20,18 @@ public sealed class GeneradorCobranzaController
 
 
     [HttpPost]
-    public async Task<IActionResult> Generar(
+    public IActionResult Generar(
         GenerarCobranzaDto dto)
     {
-        // MERCADEX_BLOQUEO_GENERADOR_UNIFORME_DEV
-        // Nunca usar la generacion de precio uniforme
-        // en el entorno de tarifas individuales.
+        // Desde Mercadex 1.5 las obligaciones mensuales se generan
+        // por tarifa individual (api/tarifas-unidad/generar-mensual).
+        // El generador de precio uniforme queda deshabilitado.
 
-        if (
-            Environment.GetEnvironmentVariable(
-                "MERCADEX_TARIFAS_DEV_MODE") == "SI" ||
-            Environment.GetEnvironmentVariable(
-                "MERCADEX_ENABLE_V15") == "SI"
-        )
+        return Conflict(new
         {
-            return Conflict(new
-            {
-                mensaje =
-                    "Generador uniforme deshabilitado. " +
-                    "Utiliza generacion mensual por tarifa individual."
-            });
-        }
-        var resultado =
-            await _service.GenerarAsync(dto);
-
-
-        return Ok(resultado);
+            mensaje =
+                "Generador uniforme deshabilitado. " +
+                "Utiliza generacion mensual por tarifa individual."
+        });
     }
 }

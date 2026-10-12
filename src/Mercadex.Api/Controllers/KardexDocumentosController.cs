@@ -28,13 +28,9 @@ public sealed class KardexDocumentosController : ControllerBase
         var ruta = Environment.GetEnvironmentVariable(
             "MERCADEX_KARDEX_STORAGE_PATH");
 
-        return Environment.GetEnvironmentVariable(
-                "MERCADEX_ENABLE_V15") == "SI" &&
-               string.Equals(
-                   _db.Database.GetDbConnection().Database,
-                   "mercadex_db_4qha",
-                   StringComparison.OrdinalIgnoreCase) &&
-               !string.IsNullOrWhiteSpace(ruta) &&
+        // Requiere una carpeta persistente para guardar los archivos
+        // (en Render: un Persistent Disk montado, p. ej. /var/data/kardex).
+        return !string.IsNullOrWhiteSpace(ruta) &&
                Path.IsPathFullyQualified(ruta);
     }
 
@@ -105,7 +101,12 @@ public sealed class KardexDocumentosController : ControllerBase
         CancellationToken ct)
     {
         if (!EntornoPermitido())
-            return StatusCode(403);
+            return StatusCode(503, new
+            {
+                mensaje =
+                    "Almacenamiento de documentos Kardex no configurado " +
+                    "(MERCADEX_KARDEX_STORAGE_PATH)."
+            });
 
         if (socioId == Guid.Empty ||
             unidadComercialId == Guid.Empty)
@@ -169,7 +170,12 @@ public sealed class KardexDocumentosController : ControllerBase
         CancellationToken ct)
     {
         if (!EntornoPermitido())
-            return StatusCode(403);
+            return StatusCode(503, new
+            {
+                mensaje =
+                    "Almacenamiento de documentos Kardex no configurado " +
+                    "(MERCADEX_KARDEX_STORAGE_PATH)."
+            });
 
         if (solicitud.SocioId == Guid.Empty ||
             solicitud.UnidadComercialId == Guid.Empty ||
@@ -401,7 +407,12 @@ public sealed class KardexDocumentosController : ControllerBase
         CancellationToken ct)
     {
         if (!EntornoPermitido())
-            return StatusCode(403);
+            return StatusCode(503, new
+            {
+                mensaje =
+                    "Almacenamiento de documentos Kardex no configurado " +
+                    "(MERCADEX_KARDEX_STORAGE_PATH)."
+            });
 
         var documento = await _db.DocumentosKardex
             .AsNoTracking()

@@ -22,17 +22,10 @@ public sealed class CorreccionesObligacionesController : ControllerBase
     }
 
     // MERCADEX_AUDITORIA_DEUDAS_V1
-    // Disponible exclusivamente en desarrollo local.
 
-    private bool EntornoPermitido()
-    {
-        return Environment.GetEnvironmentVariable(
-                "MERCADEX_ENABLE_V15") == "SI" &&
-               string.Equals(
-                   _db.Database.GetDbConnection().Database,
-                   "mercadex_db_4qha",
-                   StringComparison.OrdinalIgnoreCase);
-    }
+    // Modulo de Mercadex 1.5: protegido por [Authorize(Roles = "Administrador")].
+    // Ya no depende de variables de entorno ni del nombre de la base.
+    private static bool EntornoPermitido() => true;
 
     // MERCADEX_LISTADO_DEUDAS_V1
     // Una sola consulta para obligaciones, casetas,
@@ -49,7 +42,7 @@ public sealed class CorreccionesObligacionesController : ControllerBase
         {
             return StatusCode(403, new
             {
-                mensaje = "Solo disponible en desarrollo local."
+                mensaje = "Modulo no disponible."
             });
         }
 
@@ -169,7 +162,7 @@ public sealed class CorreccionesObligacionesController : ControllerBase
         {
             return StatusCode(403, new
             {
-                mensaje = "Disponible solo en desarrollo local."
+                mensaje = "Modulo no disponible."
             });
         }
 
@@ -232,7 +225,7 @@ public sealed class CorreccionesObligacionesController : ControllerBase
         {
             return StatusCode(403, new
             {
-                mensaje = "Disponible solo en desarrollo local."
+                mensaje = "Modulo no disponible."
             });
         }
 

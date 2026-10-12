@@ -107,6 +107,21 @@ public async Task<ResultadoCobroDto> ProcesarCobroAsync(
                 "La moneda del pago no coincide con las obligaciones.");
         }
 
+        // Pago QR: el numero de transaccion es obligatorio
+        // para poder conciliar con el extracto del banco.
+        if (dto.FormaPago == (int)FormaPago.QR &&
+            string.IsNullOrWhiteSpace(dto.Referencia))
+        {
+            throw new ArgumentException(
+                "Para un pago QR debe registrar el numero de transaccion.");
+        }
+
+        if (!Enum.IsDefined(typeof(FormaPago), dto.FormaPago))
+        {
+            throw new ArgumentException(
+                "La forma de pago no es valida.");
+        }
+
         var totalEsperado = obligaciones.Sum(x => x.Monto);
 
         if (dto.Monto != totalEsperado)

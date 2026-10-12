@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ main, develop, 'fix/**', 'release/**' ]
+    branches: [ main, develop, 'fix/**', 'release/**', 'herramientas/**' ]
   pull_request:
 
 jobs:
@@ -15,6 +15,13 @@ jobs:
           global-json-file: global.json
       - run: dotnet build Mercadex.sln -c Release
       - run: dotnet test Mercadex.sln -c Release --no-build
+      - name: Verificar que el modelo coincide con las migraciones
+        env:
+          MERCADEX_JWT_KEY: clave-de-diseno-solo-para-verificar-migraciones-0123456789
+          ConnectionStrings__MercadexDatabase: Host=localhost;Database=diseno;Username=diseno;Password=diseno
+        run: |
+          dotnet tool install --global dotnet-ef --version "10.*"
+          dotnet ef migrations has-pending-model-changes --project src/Mercadex.Infrastructure --startup-project src/Mercadex.Api
 
   desktop:
     runs-on: windows-latest

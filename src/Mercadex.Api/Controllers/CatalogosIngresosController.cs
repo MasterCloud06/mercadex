@@ -24,12 +24,15 @@ public sealed class CatalogosIngresosController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Obtener()
     {
-        var formasPago = Enum.GetValues<FormaPago>()
-            .Select(forma => new
+        // Formas de pago ofrecidas en caja: Efectivo, QR y Otros.
+        // "Transferencia" se conserva solo para cobros historicos
+        // (en el arqueo cuenta dentro de "Otros").
+        var formasPago = new[]
             {
-                Id = (int)forma,
-                Nombre = forma.ToString()
-            })
+                new { Id = (int)FormaPago.Efectivo, Nombre = "Efectivo" },
+                new { Id = (int)FormaPago.QR, Nombre = "QR" },
+                new { Id = (int)FormaPago.Otro, Nombre = "Otros" }
+            }
             .ToList();
 
         var conceptos = await _context.ConceptosCobro

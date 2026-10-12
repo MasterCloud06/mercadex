@@ -69,6 +69,9 @@ public sealed class MercadexDbContext : DbContext
     public DbSet<ComprobanteAnulacionRecibo> ComprobantesAnulacion =>
         Set<ComprobanteAnulacionRecibo>();
 
+    public DbSet<CierreCaja> CierresCaja =>
+        Set<CierreCaja>();
+
 
     public DbSet<DetalleRecibo> DetallesRecibo =>
         Set<DetalleRecibo>();

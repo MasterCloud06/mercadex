@@ -68,3 +68,13 @@ Nunca poner credenciales de la base de producción en `appsettings*.json` ni en 
 4. Recién entonces poner la misma clave en Render como `MERCADEX_API_KEY`.
 
 Sin `MERCADEX_API_KEY` (desarrollo local) la API no exige la clave.
+
+## App de socios (móvil)
+
+- La app usa solo `/api/app/*`, protegido con la cuenta de cada socio (token JWT).
+  Esas rutas no exigen la clave interna del escritorio.
+- **Antes de entregar la app a los socios, `MERCADEX_API_KEY` debe estar configurada en Render.**
+  Sin ella, las rutas del escritorio (generar códigos, aprobar pagos, etc.) quedan abiertas
+  a cualquiera que conozca la dirección de la API.
+- Los comprobantes se guardan en la base de datos (tabla `pagos_reportados`), no en disco,
+  así que no se pierden en cada despliegue de Render.

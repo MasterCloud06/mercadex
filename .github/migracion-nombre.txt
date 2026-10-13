@@ -1,1 +1,1 @@
-AgregarArchivosKardex
+AgregarEgresosEnCierreYAuditoria

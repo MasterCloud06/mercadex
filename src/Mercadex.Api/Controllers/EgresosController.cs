@@ -101,7 +101,9 @@ public sealed class EgresosController : ControllerBase
                     FechaAnulacion =
                         x.FechaAnulacion,
                     MotivoAnulacion =
-                        x.MotivoAnulacion
+                        x.MotivoAnulacion,
+                RegistradoPor = x.RegistradoPor,
+                AnuladoPor = x.AnuladoPor
                 })
                 .ToListAsync();
 
@@ -143,7 +145,9 @@ public async Task<ActionResult<
                 FechaAnulacion =
                     x.FechaAnulacion,
                 MotivoAnulacion =
-                    x.MotivoAnulacion
+                    x.MotivoAnulacion,
+                RegistradoPor = x.RegistradoPor,
+                AnuladoPor = x.AnuladoPor
             })
             .ToListAsync();
 
@@ -184,14 +188,15 @@ public async Task<ActionResult<
                     FechaAnulacion =
                         x.FechaAnulacion,
                     MotivoAnulacion =
-                        x.MotivoAnulacion
+                        x.MotivoAnulacion,
+                RegistradoPor = x.RegistradoPor,
+                AnuladoPor = x.AnuladoPor
                 })
                 .FirstOrDefaultAsync();
 
         if (egreso is null)
         {
-            return NotFound(
-                "No se encontró el egreso.");
+            return NotFound(new { mensaje = "No se encontró el egreso." });
         }
 
         return Ok(egreso);
@@ -256,8 +261,12 @@ public async Task<ActionResult<
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new { mensaje = ex.Message });
         }
+
+        // Quién registró el egreso (usuario con sesión iniciada).
+        egreso.AsignarRegistradoPor(
+            User.Identity?.IsAuthenticated == true ? User.Identity.Name : null);
 
         _context.Egresos.Add(egreso);
 
@@ -286,7 +295,9 @@ public async Task<ActionResult<
                 FechaAnulacion =
                     egreso.FechaAnulacion,
                 MotivoAnulacion =
-                    egreso.MotivoAnulacion
+                    egreso.MotivoAnulacion,
+                RegistradoPor = egreso.RegistradoPor,
+                AnuladoPor = egreso.AnuladoPor
             };
 
         return CreatedAtAction(
@@ -311,23 +322,23 @@ public async Task<ActionResult<
 
         if (egreso is null)
         {
-            return NotFound(
-                "No se encontró el egreso.");
+            return NotFound(new { mensaje = "No se encontró el egreso." });
         }
 
         try
         {
             egreso.Anular(
                 request.Motivo,
-                DateTimeOffset.UtcNow);
+                DateTimeOffset.UtcNow,
+                User.Identity?.IsAuthenticated == true ? User.Identity.Name : "Sistema");
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new { mensaje = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new { mensaje = ex.Message });
         }
 
         await _context.SaveChangesAsync();
@@ -440,6 +451,10 @@ public sealed class EgresoDto
     public DateTimeOffset? FechaAnulacion { get; set; }
 
     public string? MotivoAnulacion { get; set; }
+
+    public string? RegistradoPor { get; set; }
+
+    public string? AnuladoPor { get; set; }
 }
 
 

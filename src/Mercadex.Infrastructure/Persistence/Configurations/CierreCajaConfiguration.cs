@@ -42,5 +42,7 @@ public sealed class CierreCajaConfiguration :
 
         // Un solo cierre por día y moneda.
         builder.HasIndex(x => new { x.Fecha, x.MonedaId }).IsUnique();
+        builder.Property(x => x.EgresosEfectivo).HasPrecision(18, 2);
+        builder.Ignore(x => x.EfectivoEsperado);
     }
 }

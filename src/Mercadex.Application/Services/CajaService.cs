@@ -55,7 +55,8 @@ public sealed class CajaService : ICajaService
 
     
 public async Task<ResultadoCobroDto> ProcesarCobroAsync(
-    ProcesarCobroDto dto)
+    ProcesarCobroDto dto,
+    string? registradoPor = null)
 {
     if (dto.Items is null)
     {
@@ -150,6 +151,9 @@ public async Task<ResultadoCobroDto> ProcesarCobroAsync(
             DateTimeOffset.UtcNow,
             dto.TipoCambio,
             dto.Referencia);
+
+        // Quién registró el cobro (usuario con sesión iniciada).
+        resultado.Recibo.AsignarRegistradoPor(registradoPor);
 
         await _pagoRepository.GuardarAsync(resultado.Pago);
 

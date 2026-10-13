@@ -20,6 +20,8 @@ entre entornos se hace solo con configuración.
 | `MERCADEX_JWT_KEY` | Sí | Cadena aleatoria de 32+ caracteres |
 | `MERCADEX_ADMIN_USER` | Sí (login Kardex/Tarifas/Reportes) | Usuario administrador |
 | `MERCADEX_ADMIN_PASSWORD` | Sí | Contraseña del administrador |
+| `MERCADEX_ADMIN_NOMBRE` | Opcional | Nombre que aparece como responsable cuando ingresa el administrador principal (por defecto "Administrador") |
+| `MERCADEX_EXIGIR_LOGIN` | Cuando todas las cajas tengan la 1.6.2 | `true` → la API rechaza las peticiones del escritorio sin sesión iniciada |
 | `MERCADEX_APLICAR_MIGRACIONES` | Recomendado | `true` → aplica migraciones al iniciar |
 | `MERCADEX_API_KEY` | Recomendado | Clave interna. Si existe, la API solo atiende al instalador compilado con la misma clave (`MERCADEX_APP_KEY` al compilar). `/api/health` queda libre. |
 | `MERCADEX_PANEL_ORIGINS` | Para el panel web de caja | Dirección del panel publicado, p. ej. `https://mercadex-panel.onrender.com` (varias separadas por coma) |
@@ -84,3 +86,14 @@ Sin `MERCADEX_API_KEY` (desarrollo local) la API no exige la clave.
   a cualquiera que conozca la dirección de la API.
 - Los comprobantes se guardan en la base de datos (tabla `pagos_reportados`), no en disco,
   así que no se pierden en cada despliegue de Render.
+
+## Usuarios y roles (desde la 1.6.2)
+
+- El administrador principal es `MERCADEX_ADMIN_USER` / `MERCADEX_ADMIN_PASSWORD`. Con él se
+  crean los demás usuarios en Mercadex de escritorio → Administración → Usuarios.
+- Roles: **Administrador** (todo), **Cajero** (cobrar, egresos, cierre de caja y consultas; no anula),
+  **Consulta** (solo ver).
+- Cada usuario nuevo recibe una contraseña temporal y elige la suya al ingresar.
+- Cobros, anulaciones, modificaciones de deuda y cierres guardan el nombre del usuario.
+- Orden de activación: publicar la API → publicar el instalador 1.6.2 → cuando todas las cajas
+  se actualizaron, poner `MERCADEX_EXIGIR_LOGIN=true` en Render.

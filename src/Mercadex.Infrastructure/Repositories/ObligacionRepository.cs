@@ -1,4 +1,4 @@
-﻿using Mercadex.Application.DTOs;
+using Mercadex.Application.DTOs;
 using Mercadex.Application.Interfaces;
 using Mercadex.Domain.Cobranza;
 using Mercadex.Infrastructure.Persistence;
@@ -164,7 +164,7 @@ public async Task<bool> ExisteAsync(
 public async Task<IEnumerable<ObligacionDto>> ObtenerPendientesPorUnidadAsync(
     Guid unidadComercialId)
 {
-    return await _context.Obligaciones
+    var pendientes = await _context.Obligaciones
         .AsNoTracking()
         .Where(o =>
             o.UnidadComercialId == unidadComercialId &&
@@ -182,5 +182,43 @@ public async Task<IEnumerable<ObligacionDto>> ObtenerPendientesPorUnidadAsync(
             o.Estado.ToString()
         ))
         .ToListAsync();
+
+    if (pendientes.Count == 0)
+        return pendientes;
+
+    // Marca de "deuda modificada": cuántas veces, cuándo, quién y por qué.
+    var ids = pendientes.Select(o => o.Id).ToList();
+
+    var cambios = await _context.CambiosMontoObligacion
+        .AsNoTracking()
+        .Where(c => ids.Contains(c.ObligacionId))
+        .Select(c => new { c.ObligacionId, c.FechaUtc, c.Responsable, c.Motivo, c.MontoAnterior, c.MontoNuevo })
+        .ToListAsync();
+
+    var porObligacion = cambios
+        .GroupBy(c => c.ObligacionId)
+        .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.FechaUtc).ToList());
+
+    var zonaBolivia = TimeSpan.FromHours(-4);
+
+    return pendientes
+        .Select(o =>
+        {
+            if (!porObligacion.TryGetValue(o.Id, out var lista))
+                return o;
+
+            var ultimo = lista[0];
+            var fecha = new DateTimeOffset(DateTime.SpecifyKind(ultimo.FechaUtc, DateTimeKind.Utc))
+                .ToOffset(zonaBolivia);
+
+            return o with
+            {
+                Modificaciones = lista.Count,
+                UltimaModificacion =
+                    $"Modificada el {fecha:dd/MM/yyyy HH:mm} por {ultimo.Responsable}: " +
+                    $"{ultimo.MontoAnterior:N2} → {ultimo.MontoNuevo:N2}. Motivo: {ultimo.Motivo}"
+            };
+        })
+        .ToList();
 }
 }

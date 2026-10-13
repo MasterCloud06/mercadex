@@ -279,7 +279,11 @@ public sealed class PanelCajaController : ControllerBase
         if (pago.Estado != EstadoPagoReportado.Pendiente)
             return Conflict(new { mensaje = "Este pago ya fue revisado." });
 
-        var revisadoPor = r.RevisadoPor?.Trim() ?? "";
+        // Con un usuario propio, quien revisa es el de la sesión;
+        // el administrador principal escribe su nombre.
+        var revisadoPor = User.HasClaim(c => c.Type == Mercadex.Api.Seguridad.SeguridadUsuarios.ClaimUsuario)
+            ? User.Identity?.Name?.Trim() ?? ""
+            : r.RevisadoPor?.Trim() ?? "";
         if (revisadoPor.Length < 3)
             return BadRequest(new { mensaje = "Escribe tu nombre (quien revisa)." });
 
@@ -301,7 +305,8 @@ public sealed class PanelCajaController : ControllerBase
             NombrePagador: $"{socio.Nombres} {socio.Apellidos}",
             TipoCambio: 1m,
             Referencia: pago.Referencia,
-            Items: conceptos.Select(c => new ItemCobroDto(c.Id, c.Nombre)).ToList()));
+            Items: conceptos.Select(c => new ItemCobroDto(c.Id, c.Nombre)).ToList()),
+            registradoPor: revisadoPor);
 
         // Recargar: el cobro usó su propia transacción.
         _db.ChangeTracker.Clear();
@@ -324,7 +329,11 @@ public sealed class PanelCajaController : ControllerBase
         if (pago == null)
             return NotFound(new { mensaje = "El pago no existe." });
 
-        pago.Rechazar(r.RevisadoPor ?? "", r.Motivo ?? "", DateTimeOffset.UtcNow);
+        var rechazadoPor = User.HasClaim(c => c.Type == Mercadex.Api.Seguridad.SeguridadUsuarios.ClaimUsuario)
+            ? User.Identity?.Name ?? ""
+            : r.RevisadoPor ?? "";
+
+        pago.Rechazar(rechazadoPor, r.Motivo ?? "", DateTimeOffset.UtcNow);
         await _db.SaveChangesAsync(ct);
 
         return Ok(new { mensaje = "Pago rechazado. El socio verá el motivo en la app." });

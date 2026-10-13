@@ -188,7 +188,11 @@ public sealed class ArqueoDiarioController : ControllerBase
             resumen?.CantidadQr ?? 0,
             resumen?.CantidadOtros ?? 0,
             solicitud.EfectivoContado,
-            solicitud.Responsable,
+            // Con sesión iniciada el responsable es el usuario; sin sesión
+            // (instaladores anteriores) se usa el nombre escrito.
+            User.Identity?.IsAuthenticated == true && !string.IsNullOrWhiteSpace(User.Identity.Name)
+                ? User.Identity.Name!
+                : solicitud.Responsable,
             solicitud.Observacion,
             DateTimeOffset.UtcNow);
 

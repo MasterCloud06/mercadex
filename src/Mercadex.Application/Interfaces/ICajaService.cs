@@ -17,5 +17,6 @@ public interface ICajaService
         string anuladoPor);
 
     Task<ResultadoCobroDto> ProcesarCobroAsync(
-        ProcesarCobroDto dto);
+        ProcesarCobroDto dto,
+        string? registradoPor = null);
 }

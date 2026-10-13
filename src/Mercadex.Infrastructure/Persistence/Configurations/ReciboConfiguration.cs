@@ -1,4 +1,4 @@
-﻿using Mercadex.Domain.Caja;
+using Mercadex.Domain.Caja;
 using Mercadex.Domain.Organizacion;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -32,7 +32,10 @@ public sealed class ReciboConfiguration :
             .HasMaxLength(500);
 
         builder.Property(x => x.FechaAnulacion);
-builder.Property(x => x.AnuladoPor)
+builder.Property(x => x.RegistradoPor)
+            .HasMaxLength(120);
+
+        builder.Property(x => x.AnuladoPor)
     .HasMaxLength(150);
 
         builder.Ignore(x => x.Total);

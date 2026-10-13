@@ -421,6 +421,10 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("PagoId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("RegistradoPor")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<Guid>("UnidadComercialId")
                         .HasColumnType("uuid");
 
@@ -901,6 +905,58 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.HasIndex("DocumentoIdentidad");
 
                     b.ToTable("socios", (string)null);
+                });
+
+            modelBuilder.Entity("Mercadex.Domain.Usuarios.Usuario", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("BloqueadoHastaUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ContrasenaHash")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("DebeCambiarContrasena")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("FechaCreacionUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("IntentosFallidos")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("NombreCompleto")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("NombreUsuario")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("Rol")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("UltimoAccesoUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("VersionSesion")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NombreUsuario")
+                        .IsUnique();
+
+                    b.ToTable("usuarios", (string)null);
                 });
 
             modelBuilder.Entity("Mercadex.Infrastructure.Persistence.Entities.KardexCaseta", b =>

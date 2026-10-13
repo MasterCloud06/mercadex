@@ -1,120 +1,209 @@
-
-using System;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
-
+using Mercadex.Api.Seguridad;
+using Mercadex.Domain.Usuarios;
+using Mercadex.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.IdentityModel.Tokens;
+using Microsoft.EntityFrameworkCore;
 
 namespace Mercadex.Api.Controllers;
 
+/// <summary>
+/// Inicio de sesión de Mercadex de escritorio y del panel de caja.
+/// Primero se buscan los usuarios guardados en la base; el administrador
+/// configurado en Render (MERCADEX_ADMIN_USER / MERCADEX_ADMIN_PASSWORD)
+/// sigue funcionando como administrador principal, para crear a los demás
+/// y para recuperar el acceso si se olvidan todas las contraseñas.
+/// </summary>
 [ApiController]
 [Route("api/auth")]
 public sealed class AuthController : ControllerBase
 {
-    private readonly IConfiguration _config;
+    private const string MensajeCredenciales = "Usuario o contraseña incorrectos.";
 
-    public AuthController(IConfiguration config)
+    private readonly IConfiguration _config;
+    private readonly MercadexDbContext _db;
+
+    public AuthController(IConfiguration config, MercadexDbContext db)
     {
         _config = config;
+        _db = db;
     }
 
     [HttpPost("login")]
+    [AllowAnonymous]
     [EnableRateLimiting("login")]
-    public IActionResult Login([FromBody] LoginRequest request)
+    public async Task<IActionResult> Login([FromBody] LoginRequest? request, CancellationToken ct)
     {
-        var usuario = _config["MERCADEX_ADMIN_USER"];
-        var password = _config["MERCADEX_ADMIN_PASSWORD"];
         var jwtKey = _config["MERCADEX_JWT_KEY"];
 
-        // Comprobar que el administrador esté configurado.
+        if (string.IsNullOrWhiteSpace(jwtKey))
+            return StatusCode(503, new { mensaje = "Autenticación no configurada." });
 
-        if (string.IsNullOrWhiteSpace(usuario) ||
-            string.IsNullOrWhiteSpace(password) ||
-            string.IsNullOrWhiteSpace(jwtKey))
+        var nombreUsuario = (request?.Usuario ?? "").Trim().ToLowerInvariant();
+        var contrasena = request?.Password ?? "";
+
+        if (nombreUsuario.Length == 0 || contrasena.Length == 0)
+            return BadRequest(new { mensaje = "Escribe tu usuario y tu contraseña." });
+
+        var ahora = DateTimeOffset.UtcNow;
+
+        // ---------- Usuarios guardados en la base ----------
+
+        var usuario = await _db.Usuarios.FirstOrDefaultAsync(u => u.NombreUsuario == nombreUsuario, ct);
+
+        if (usuario is not null)
         {
-            return StatusCode(
-                503,
-                new
+            if (usuario.EstaBloqueado(ahora))
+            {
+                var minutos = (int)Math.Ceiling((usuario.BloqueadoHastaUtc!.Value - ahora).TotalMinutes);
+                return StatusCode(429, new
                 {
-                    mensaje = "Autenticación no configurada."
+                    mensaje = $"Demasiados intentos fallidos. Vuelve a intentar en {minutos} minuto(s)."
                 });
+            }
+
+            if (!SeguridadApp.Verificar(contrasena, usuario.ContrasenaHash))
+            {
+                usuario.RegistrarFallo(ahora);
+                await _db.SaveChangesAsync(ct);
+                return Unauthorized(new { mensaje = MensajeCredenciales });
+            }
+
+            if (!usuario.Activo)
+                return Unauthorized(new { mensaje = "Tu usuario está desactivado. Habla con el administrador." });
+
+            usuario.RegistrarAcceso(ahora);
+            await _db.SaveChangesAsync(ct);
+
+            var (token, expira) = SeguridadUsuarios.CrearToken(
+                usuario.Id.ToString(),
+                usuario.NombreUsuario,
+                usuario.NombreCompleto,
+                usuario.Rol,
+                usuario.VersionSesion,
+                jwtKey,
+                usuario.DebeCambiarContrasena);
+
+            return Ok(new
+            {
+                token,
+                usuario = usuario.NombreUsuario,
+                nombre = usuario.NombreCompleto,
+                rol = usuario.Rol.ToString(),
+                expira,
+                debeCambiarContrasena = usuario.DebeCambiarContrasena,
+                principal = false
+            });
         }
 
-        // Comprobar las credenciales.
+        // ---------- Administrador principal (Render) ----------
 
-        if (request is null ||
-            !Comparar(request.Usuario, usuario) ||
-            !Comparar(request.Password, password))
+        var adminUsuario = _config["MERCADEX_ADMIN_USER"];
+        var adminContrasena = _config["MERCADEX_ADMIN_PASSWORD"];
+
+        if (!string.IsNullOrWhiteSpace(adminUsuario) &&
+            !string.IsNullOrWhiteSpace(adminContrasena) &&
+            SeguridadUsuarios.CompararTexto(nombreUsuario, adminUsuario.Trim().ToLowerInvariant()) &&
+            SeguridadUsuarios.CompararTexto(contrasena, adminContrasena))
         {
-            return Unauthorized(
-                new
-                {
-                    mensaje = "Usuario o contraseña incorrectos."
-                });
+            var nombre = string.IsNullOrWhiteSpace(_config["MERCADEX_ADMIN_NOMBRE"])
+                ? "Administrador"
+                : _config["MERCADEX_ADMIN_NOMBRE"]!.Trim();
+
+            var (token, expira) = SeguridadUsuarios.CrearToken(
+                SeguridadUsuarios.IdAdministradorPrincipal,
+                adminUsuario.Trim().ToLowerInvariant(),
+                nombre,
+                RolUsuario.Administrador,
+                version: null,
+                jwtKey);
+
+            return Ok(new
+            {
+                token,
+                usuario = adminUsuario.Trim().ToLowerInvariant(),
+                nombre,
+                rol = RolUsuario.Administrador.ToString(),
+                expira,
+                debeCambiarContrasena = false,
+                principal = true
+            });
         }
 
-        // Identidad y permisos del administrador.
+        return Unauthorized(new { mensaje = MensajeCredenciales });
+    }
 
-        var claims = new[]
-        {
-            new Claim(
-                ClaimTypes.NameIdentifier,
-                "administrador"),
-
-            new Claim(
-                ClaimTypes.Name,
-                usuario),
-
-            new Claim(
-                ClaimTypes.Role,
-                "Administrador")
-        };
-
-        // Crear el token JWT.
-
-        var llave = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(jwtKey));
-
-        var credenciales = new SigningCredentials(
-            llave,
-            SecurityAlgorithms.HmacSha256);
-
-        var vencimiento = DateTime.UtcNow.AddHours(2);
-
-        var token = new JwtSecurityToken(
-            issuer: "Mercadex",
-            audience: "Mercadex.Desktop",
-            claims: claims,
-            expires: vencimiento,
-            signingCredentials: credenciales);
-
-        var tokenTexto = new JwtSecurityTokenHandler()
-            .WriteToken(token);
-
+    /// <summary>Datos de la sesión actual.</summary>
+    [HttpGet("yo")]
+    [Authorize(Roles = $"{SeguridadUsuarios.RolAdministrador},{SeguridadUsuarios.RolCajero},{SeguridadUsuarios.RolConsulta}")]
+    public IActionResult Yo()
+    {
         return Ok(new
         {
-            token = tokenTexto,
-            usuario = usuario,
-            rol = "Administrador",
-            expira = vencimiento
+            usuario = User.FindFirstValue(SeguridadUsuarios.ClaimNombreUsuario),
+            nombre = User.Identity?.Name,
+            rol = User.FindFirstValue(ClaimTypes.Role),
+            principal = User.FindFirstValue(ClaimTypes.NameIdentifier) == SeguridadUsuarios.IdAdministradorPrincipal
         });
     }
 
-    private static bool Comparar(
-        string? recibido,
-        string esperado)
+    public sealed record CambiarContrasenaRequest(string? Actual, string? Nueva);
+
+    /// <summary>El usuario cambia su propia contraseña. Cierra sus otras sesiones.</summary>
+    [HttpPost("contrasena")]
+    [Authorize(Roles = $"{SeguridadUsuarios.RolAdministrador},{SeguridadUsuarios.RolCajero},{SeguridadUsuarios.RolConsulta}")]
+    public async Task<IActionResult> CambiarContrasena([FromBody] CambiarContrasenaRequest? r, CancellationToken ct)
     {
-        var a = SHA256.HashData(
-            Encoding.UTF8.GetBytes(recibido ?? ""));
+        var jwtKey = _config["MERCADEX_JWT_KEY"]!;
 
-        var b = SHA256.HashData(
-            Encoding.UTF8.GetBytes(esperado));
+        if (!Guid.TryParse(User.FindFirstValue(SeguridadUsuarios.ClaimUsuario), out var id))
+        {
+            return BadRequest(new
+            {
+                mensaje = "La contraseña del administrador principal se cambia en Render (MERCADEX_ADMIN_PASSWORD)."
+            });
+        }
 
-        return CryptographicOperations.FixedTimeEquals(a, b);
+        var usuario = await _db.Usuarios.FirstOrDefaultAsync(u => u.Id == id, ct);
+
+        if (usuario is null || !usuario.Activo)
+            return Unauthorized(new { mensaje = "Tu sesión terminó. Vuelve a ingresar." });
+
+        if (!SeguridadApp.Verificar(r?.Actual ?? "", usuario.ContrasenaHash))
+            return BadRequest(new { mensaje = "La contraseña actual no es correcta." });
+
+        var problema = SeguridadApp.ProblemaContrasena(r?.Nueva);
+        if (problema is not null)
+            return BadRequest(new { mensaje = problema });
+
+        if (SeguridadApp.Verificar(r!.Nueva!, usuario.ContrasenaHash))
+            return BadRequest(new { mensaje = "La contraseña nueva debe ser distinta de la actual." });
+
+        usuario.CambiarContrasena(SeguridadApp.Huella(r.Nueva!));
+        await _db.SaveChangesAsync(ct);
+
+        // Nueva sesión con la versión actualizada.
+        var (token, expira) = SeguridadUsuarios.CrearToken(
+            usuario.Id.ToString(),
+            usuario.NombreUsuario,
+            usuario.NombreCompleto,
+            usuario.Rol,
+            usuario.VersionSesion,
+            jwtKey);
+
+        return Ok(new
+        {
+            mensaje = "Contraseña actualizada.",
+            token,
+            usuario = usuario.NombreUsuario,
+            nombre = usuario.NombreCompleto,
+            rol = usuario.Rol.ToString(),
+            expira,
+            debeCambiarContrasena = false,
+            principal = false
+        });
     }
 }
 

@@ -22,7 +22,13 @@ public sealed class KardexDocumentosController : ControllerBase
         _db = db;
     }
 
-    private bool EntornoPermitido()
+    /// <summary>
+    /// Sin disco persistente los archivos se guardan en la base de datos,
+    /// con un límite menor para cuidar su espacio.
+    /// </summary>
+    private const long MaximoBytesEnBase = 5L * 1024 * 1024;
+
+    private static bool UsaDisco()
     {
         var ruta = Environment.GetEnvironmentVariable(
             "MERCADEX_KARDEX_STORAGE_PATH");
@@ -99,13 +105,6 @@ public sealed class KardexDocumentosController : ControllerBase
         [FromQuery] Guid? unidadComercialId,
         CancellationToken ct)
     {
-        if (!EntornoPermitido())
-            return StatusCode(503, new
-            {
-                mensaje =
-                    "Almacenamiento de documentos Kardex no configurado " +
-                    "(MERCADEX_KARDEX_STORAGE_PATH)."
-            });
 
         if (socioId == Guid.Empty ||
             unidadComercialId == Guid.Empty)
@@ -168,13 +167,6 @@ public sealed class KardexDocumentosController : ControllerBase
         [FromForm] SubirDocumentoKardexRequest solicitud,
         CancellationToken ct)
     {
-        if (!EntornoPermitido())
-            return StatusCode(503, new
-            {
-                mensaje =
-                    "Almacenamiento de documentos Kardex no configurado " +
-                    "(MERCADEX_KARDEX_STORAGE_PATH)."
-            });
 
         if (solicitud.SocioId == Guid.Empty ||
             solicitud.UnidadComercialId == Guid.Empty ||
@@ -189,12 +181,14 @@ public sealed class KardexDocumentosController : ControllerBase
 
         var archivo = solicitud.Archivo;
 
+        var maximo = UsaDisco() ? MaximoBytes : MaximoBytesEnBase;
+
         if (archivo.Length <= 0 ||
-            archivo.Length > MaximoBytes)
+            archivo.Length > maximo)
         {
             return BadRequest(new
             {
-                mensaje = "El archivo debe tener entre 1 byte y 10 MB."
+                mensaje = $"El archivo debe pesar como máximo {maximo / (1024 * 1024)} MB."
             });
         }
 
@@ -335,6 +329,37 @@ public sealed class KardexDocumentosController : ControllerBase
             hash,
             responsable);
 
+        if (!UsaDisco())
+        {
+            // Sin disco persistente: documento y archivo en una sola transacción.
+            await using var transaccionBase =
+                await _db.Database.BeginTransactionAsync(ct);
+
+            _db.DocumentosKardex.Add(documento);
+            _db.ArchivosKardex.Add(new Mercadex.Infrastructure.Persistence.Entities.ArchivoKardex
+            {
+                Id = documento.Id,
+                Contenido = bytes
+            });
+
+            await _db.SaveChangesAsync(ct);
+            await transaccionBase.CommitAsync(ct);
+
+            return Created(
+                $"/api/kardex-documentos/{documento.Id}/descargar",
+                new
+                {
+                    documento.Id,
+                    documento.SocioId,
+                    documento.UnidadComercialId,
+                    tipo = documento.Tipo.ToString(),
+                    documento.NombreArchivo,
+                    documento.TamanoBytes,
+                    documento.Sha256,
+                    documento.FechaRegistroUtc
+                });
+        }
+
         Directory.CreateDirectory(CarpetaPrivada);
 
         // El nombre fisico lo genera el sistema.
@@ -406,13 +431,6 @@ public sealed class KardexDocumentosController : ControllerBase
         Guid id,
         CancellationToken ct)
     {
-        if (!EntornoPermitido())
-            return StatusCode(503, new
-            {
-                mensaje =
-                    "Almacenamiento de documentos Kardex no configurado " +
-                    "(MERCADEX_KARDEX_STORAGE_PATH)."
-            });
 
         var documento = await _db.DocumentosKardex
             .AsNoTracking()
@@ -420,6 +438,38 @@ public sealed class KardexDocumentosController : ControllerBase
 
         if (documento is null)
             return NotFound();
+
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        Response.Headers["Cache-Control"] = "no-store";
+
+        // Archivo guardado en la base (servidor sin disco persistente).
+        var enBase = await _db.ArchivosKardex
+            .AsNoTracking()
+            .Where(x => x.Id == id)
+            .Select(x => x.Contenido)
+            .FirstOrDefaultAsync(ct);
+
+        if (enBase is not null)
+        {
+            if (!string.Equals(
+                    Convert.ToHexString(SHA256.HashData(enBase)),
+                    documento.Sha256,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return Conflict(new
+                {
+                    mensaje = "La integridad del archivo no coincide con SHA-256."
+                });
+            }
+
+            return File(enBase, documento.TipoContenido, documento.NombreArchivo);
+        }
+
+        if (!UsaDisco())
+            return NotFound(new
+            {
+                mensaje = "El archivo no está disponible en este servidor."
+            });
 
         if (documento.ClaveArchivo.Length != 32 ||
             !documento.ClaveArchivo.All(Uri.IsHexDigit))

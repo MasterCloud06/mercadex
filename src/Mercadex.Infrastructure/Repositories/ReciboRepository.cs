@@ -1,4 +1,4 @@
-﻿using Mercadex.Application.DTOs;
+using Mercadex.Application.DTOs;
 using Mercadex.Application.Interfaces;
 using Mercadex.Domain.Caja;
 using Mercadex.Infrastructure.Persistence;
@@ -40,7 +40,10 @@ public sealed class ReciboRepository : IReciboRepository
                         d.PeriodoMes)),
                 r.MotivoAnulacion,
                 r.FechaAnulacion,
-                r.AnuladoPor))
+                r.AnuladoPor)
+            {
+                RegistradoPor = r.RegistradoPor
+            })
             .FirstOrDefaultAsync();
     }
 
@@ -68,7 +71,10 @@ public sealed class ReciboRepository : IReciboRepository
                         d.PeriodoMes)),
                 r.MotivoAnulacion,
                 r.FechaAnulacion,
-                r.AnuladoPor))
+                r.AnuladoPor)
+            {
+                RegistradoPor = r.RegistradoPor
+            })
             .ToListAsync();
     }
 

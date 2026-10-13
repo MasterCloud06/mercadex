@@ -189,6 +189,9 @@ public async Task<ResultadoCobroDto> ProcesarCobroAsync(
                         d.Monto,
                         d.PeriodoAnio,
                         d.PeriodoMes)))
+            {
+                RegistradoPor = resultado.Recibo.RegistradoPor
+            }
         );
     }
     catch

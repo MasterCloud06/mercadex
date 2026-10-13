@@ -189,6 +189,9 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.Property<int>("CantidadEfectivo")
                         .HasColumnType("integer");
 
+                    b.Property<int>("CantidadEgresos")
+                        .HasColumnType("integer");
+
                     b.Property<int>("CantidadOtros")
                         .HasColumnType("integer");
 
@@ -207,6 +210,10 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,2)");
 
                     b.Property<decimal>("EfectivoContado")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("EgresosEfectivo")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
@@ -655,6 +662,10 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.Property<bool>("Anulado")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("AnuladoPor")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<string>("Beneficiario")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -707,6 +718,10 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.Property<string>("Observacion")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("RegistradoPor")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
 
                     b.HasKey("Id");
 

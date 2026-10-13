@@ -92,6 +92,24 @@ public sealed class Socio : Entity
         $"{Nombres} {Apellidos}";
 
 
+    /// <summary>Corrige los datos personales del socio (nombre, CI, celular).</summary>
+    public void ActualizarDatos(
+        string nombres,
+        string apellidos,
+        string documentoIdentidad,
+        string? telefono)
+    {
+        ValidarNombres(nombres);
+        ValidarApellidos(apellidos);
+        ValidarDocumento(documentoIdentidad);
+
+        Nombres = nombres.Trim();
+        Apellidos = apellidos.Trim();
+        DocumentoIdentidad = documentoIdentidad.Trim();
+        Telefono = LimpiarOpcional(telefono);
+    }
+
+
     public void Desactivar()
     {
         Activo = false;

@@ -1,7 +1,6 @@
 **/bin/
 **/obj/
 **/.vs/
-Desktop/
 tests/
 .git/
 .github/

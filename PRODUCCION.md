@@ -6,7 +6,7 @@
 |---|---|---|
 | API | Render: `https://mercadex-api.onrender.com` (Docker, rama `main`) | `dotnet run` en `src/Mercadex.Api` |
 | Base de datos | PostgreSQL de Render | PostgreSQL local |
-| Desktop | `appsettings.json` → URL de Render | Variable de entorno `MERCADEX_API_URL=http://127.0.0.1:5189/` |
+| Desktop ([mercadex-desktop](https://github.com/MasterCloud06/mercadex-desktop)) | `appsettings.json` → URL de Render | Variable de entorno `MERCADEX_API_URL=http://127.0.0.1:5189/` |
 
 Ya **no** hay bloqueos en el código que dependan de `MERCADEX_TARIFAS_DEV_MODE`,
 `MERCADEX_ENABLE_V15`, del puerto `5189` ni del nombre de la base. La separación
@@ -54,9 +54,10 @@ dotnet user-secrets set "MERCADEX_ADMIN_USER" "admin"
 dotnet user-secrets set "MERCADEX_ADMIN_PASSWORD" "..."
 dotnet run --urls http://127.0.0.1:5189
 
-# Desktop apuntando a la API local
+# Desktop apuntando a la API local (repositorio mercadex-desktop)
+cd C:\Mercadex\desktop
 $env:MERCADEX_API_URL = "http://127.0.0.1:5189/"
-dotnet run --project Desktop/Mercadex.Desktop.App
+dotnet run --project Mercadex.Desktop.App
 ```
 
 Nunca poner credenciales de la base de producción en `appsettings*.json` ni en el repositorio.

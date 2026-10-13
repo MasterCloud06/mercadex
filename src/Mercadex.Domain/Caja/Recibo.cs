@@ -83,6 +83,18 @@ public sealed class Recibo : Entity
 
     public string? AnuladoPor { get; private set; }
 
+    /// <summary>Usuario que registró el cobro (vacío en recibos anteriores al inicio de sesión).</summary>
+    public string? RegistradoPor { get; private set; }
+
+    public void AsignarRegistradoPor(string? usuario)
+    {
+        if (string.IsNullOrWhiteSpace(usuario))
+            return;
+
+        var limpio = usuario.Trim();
+        RegistradoPor = limpio.Length > 120 ? limpio[..120] : limpio;
+    }
+
     public IReadOnlyCollection<DetalleRecibo> Detalles =>
         _detalles.AsReadOnly();
 

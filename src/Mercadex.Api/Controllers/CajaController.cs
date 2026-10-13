@@ -106,8 +106,12 @@ public async Task<IActionResult> AnularRecibo(
 public async Task<ActionResult<ResultadoCobroDto>> ProcesarCobro(
     ProcesarCobroDto dto)
 {
+    var registradoPor = User.Identity?.IsAuthenticated == true
+        ? User.Identity.Name
+        : null;
+
     var resultado = await _service
-        .ProcesarCobroAsync(dto);
+        .ProcesarCobroAsync(dto, registradoPor);
 
     return Ok(resultado);
 }

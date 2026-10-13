@@ -35,6 +35,8 @@ public sealed class ReportesCajaController : ControllerBase
     public async Task<IActionResult> Consultar(
         [FromQuery] DateOnly? desde,
         [FromQuery] DateOnly? hasta,
+        [FromQuery] Guid? conceptoId,
+        [FromQuery] string? bloque,
         CancellationToken ct)
     {
         if (!EntornoPermitido())
@@ -181,6 +183,7 @@ public sealed class ReportesCajaController : ControllerBase
                 pago.FormaPago.ToString(),
                 pago.NombrePagador,
                 pago.Referencia,
+                recibo.RegistradoPor,
                 recibo.FechaEmision,
                 recibo.Detalles
                     .Select(d => new ConceptoDetalle(
@@ -189,6 +192,48 @@ public sealed class ReportesCajaController : ControllerBase
                         d.Monto))
                     .ToList()
             ));
+        }
+
+        // Filtros opcionales ("pago por grupo de bloques"):
+        // un concepto y/o un bloque. Con concepto, cada recibo cuenta
+        // solo el importe de ese concepto.
+
+        HashSet<Guid>? unidadesDelBloque = null;
+        var bloqueFiltro = string.IsNullOrWhiteSpace(bloque) ? null : bloque.Trim();
+
+        if (bloqueFiltro is not null)
+        {
+            var bloqueMayus = bloqueFiltro.ToUpper();
+
+            unidadesDelBloque = (await _db.UnidadesComerciales
+                    .AsNoTracking()
+                    .Where(u => u.Bloque != null && u.Bloque.Trim().ToUpper() == bloqueMayus)
+                    .Select(u => u.Id)
+                    .ToListAsync(ct))
+                .ToHashSet();
+
+            movimientos = movimientos
+                .Where(m => unidadesDelBloque.Contains(m.UnidadComercialId))
+                .ToList();
+        }
+
+        if (conceptoId.HasValue && conceptoId.Value != Guid.Empty)
+        {
+            movimientos = movimientos
+                .Select(m =>
+                {
+                    var delConcepto = m.Conceptos
+                        .Where(c => c.ConceptoCobroId == conceptoId.Value)
+                        .ToList();
+
+                    return m with
+                    {
+                        Conceptos = delConcepto,
+                        Monto = delConcepto.Sum(c => c.Monto)
+                    };
+                })
+                .Where(m => m.Conceptos.Count > 0)
+                .ToList();
         }
 
         // Los totales se calculan POR MONEDA.
@@ -298,7 +343,10 @@ public sealed class ReportesCajaController : ControllerBase
                 x.Estado == EstadoRecibo.Anulado &&
                 x.FechaAnulacion.HasValue &&
                 x.FechaAnulacion.Value >= inicio &&
-                x.FechaAnulacion.Value < fin)
+                x.FechaAnulacion.Value < fin &&
+                (unidadesDelBloque == null || unidadesDelBloque.Contains(x.UnidadComercialId)) &&
+                (!conceptoId.HasValue || conceptoId.Value == Guid.Empty ||
+                    x.Detalles.Any(d => d.ConceptoCobroId == conceptoId.Value)))
             .Select(x => new
             {
                 reciboId = x.Id,
@@ -328,6 +376,7 @@ public sealed class ReportesCajaController : ControllerBase
                 formaPago = x.FormaPago,
                 pagador = x.Pagador,
                 referencia = x.Referencia,
+                cobradoPor = x.RegistradoPor,
                 fechaEmisionUtc = x.FechaEmisionUtc,
                 fechaBolivia = x.FechaEmisionUtc
                     .ToOffset(ZonaBolivia)
@@ -345,6 +394,8 @@ public sealed class ReportesCajaController : ControllerBase
             zonaHoraria = "Bolivia UTC-04:00",
             generadoUtc = DateTimeOffset.UtcNow,
             tipo = "Consulta de caja - no es un cierre definitivo",
+            filtroConceptoId = conceptoId,
+            filtroBloque = bloqueFiltro,
 
             cantidadRecibosValidos = movimientos.Count,
             cantidadAnulaciones = anulaciones.Count,
@@ -373,6 +424,7 @@ public sealed class ReportesCajaController : ControllerBase
         string FormaPago,
         string Pagador,
         string? Referencia,
+        string? RegistradoPor,
         DateTimeOffset FechaEmisionUtc,
         IReadOnlyList<ConceptoDetalle> Conceptos);
 

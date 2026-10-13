@@ -10,4 +10,11 @@ public sealed record ObligacionDto(
     DateOnly? FechaVencimiento,
     int? PeriodoAnio,
     int? PeriodoMes,
-    string Estado);
+    string Estado)
+{
+    /// <summary>Cantidad de veces que se modificó el monto.</summary>
+    public int Modificaciones { get; init; }
+
+    /// <summary>Resumen de la última modificación: fecha, quién y motivo.</summary>
+    public string? UltimaModificacion { get; init; }
+}

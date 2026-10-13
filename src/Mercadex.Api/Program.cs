@@ -11,7 +11,11 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(opciones =>
+{
+    // Permisos por rol (Administrador, Cajero, Consulta).
+    opciones.Filters.Add<Mercadex.Api.Seguridad.PermisosPorRolFilter>();
+});
 
 builder.Services.AddOpenApi();
 
@@ -50,6 +54,38 @@ builder.Services
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.FromMinutes(1)
             };
+
+        // Usuarios guardados en la base: la sesión deja de valer si el
+        // usuario fue desactivado, cambió su contraseña o su rol.
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async contexto =>
+            {
+                var principal = contexto.Principal;
+                var idTexto = principal?.FindFirst(Mercadex.Api.Seguridad.SeguridadUsuarios.ClaimUsuario)?.Value;
+
+                if (idTexto is null)
+                    return;
+
+                var versionTexto = principal!.FindFirst(Mercadex.Api.Seguridad.SeguridadUsuarios.ClaimVersion)?.Value;
+
+                if (!Guid.TryParse(idTexto, out var id) || !int.TryParse(versionTexto, out var version))
+                {
+                    contexto.Fail("Sesión no válida.");
+                    return;
+                }
+
+                var db = contexto.HttpContext.RequestServices.GetRequiredService<MercadexDbContext>();
+
+                var vigente = await db.Usuarios
+                    .AsNoTracking()
+                    .AnyAsync(u => u.Id == id && u.Activo && u.VersionSesion == version,
+                        contexto.HttpContext.RequestAborted);
+
+                if (!vigente)
+                    contexto.Fail("La sesión ya no es válida.");
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
@@ -224,7 +260,7 @@ builder.Services.AddRateLimiter(options =>
 
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 5,
+                PermitLimit = 15,
                 Window = TimeSpan.FromMinutes(5),
                 QueueLimit = 0,
                 AutoReplenishment = true

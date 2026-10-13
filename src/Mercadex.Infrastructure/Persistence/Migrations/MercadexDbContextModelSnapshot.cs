@@ -959,6 +959,20 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.ToTable("usuarios", (string)null);
                 });
 
+            modelBuilder.Entity("Mercadex.Infrastructure.Persistence.Entities.ArchivoKardex", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Contenido")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("archivos_kardex", (string)null);
+                });
+
             modelBuilder.Entity("Mercadex.Infrastructure.Persistence.Entities.KardexCaseta", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1206,6 +1220,15 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UnidadComercialId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Mercadex.Infrastructure.Persistence.Entities.ArchivoKardex", b =>
+                {
+                    b.HasOne("Mercadex.Domain.Socios.DocumentoKardex", null)
+                        .WithOne()
+                        .HasForeignKey("Mercadex.Infrastructure.Persistence.Entities.ArchivoKardex", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Mercadex.Infrastructure.Persistence.Entities.KardexCaseta", b =>

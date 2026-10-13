@@ -329,7 +329,11 @@ public sealed class PanelCajaController : ControllerBase
         if (pago == null)
             return NotFound(new { mensaje = "El pago no existe." });
 
-        pago.Rechazar(r.RevisadoPor ?? "", r.Motivo ?? "", DateTimeOffset.UtcNow);
+        var rechazadoPor = User.HasClaim(c => c.Type == Mercadex.Api.Seguridad.SeguridadUsuarios.ClaimUsuario)
+            ? User.Identity?.Name ?? ""
+            : r.RevisadoPor ?? "";
+
+        pago.Rechazar(rechazadoPor, r.Motivo ?? "", DateTimeOffset.UtcNow);
         await _db.SaveChangesAsync(ct);
 
         return Ok(new { mensaje = "Pago rechazado. El socio verá el motivo en la app." });

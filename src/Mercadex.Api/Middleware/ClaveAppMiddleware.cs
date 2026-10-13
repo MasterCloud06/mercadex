@@ -8,6 +8,12 @@ namespace Mercadex.Api.Middleware;
 /// cuando la variable MERCADEX_API_KEY está configurada en el servidor.
 /// Sin la variable (desarrollo local) no se exige nada.
 /// /api/health queda libre para el monitoreo de Render.
+/// /api/app/* (app móvil de socios) no usa esta clave: una app publicada
+/// en tiendas no puede guardar secretos; se protege con la cuenta del socio.
+/// /api/panel/* (panel web de caja) tampoco: exige el inicio de sesión del
+/// administrador, porque un navegador tampoco puede guardar la clave.
+/// /api/auth/login queda libre para que el panel pueda iniciar sesión
+/// (tiene límite de intentos y exige usuario y contraseña).
 /// </summary>
 public sealed class ClaveAppMiddleware
 {
@@ -29,7 +35,10 @@ public sealed class ClaveAppMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         if (_clave is null ||
-            context.Request.Path.StartsWithSegments("/api/health"))
+            context.Request.Path.StartsWithSegments("/api/health") ||
+            context.Request.Path.StartsWithSegments("/api/app") ||
+            context.Request.Path.StartsWithSegments("/api/panel") ||
+            context.Request.Path.StartsWithSegments("/api/auth/login"))
         {
             await _next(context);
             return;

@@ -22,6 +22,7 @@ entre entornos se hace solo con configuración.
 | `MERCADEX_ADMIN_PASSWORD` | Sí | Contraseña del administrador |
 | `MERCADEX_APLICAR_MIGRACIONES` | Recomendado | `true` → aplica migraciones al iniciar |
 | `MERCADEX_API_KEY` | Recomendado | Clave interna. Si existe, la API solo atiende al instalador compilado con la misma clave (`MERCADEX_APP_KEY` al compilar). `/api/health` queda libre. |
+| `MERCADEX_PANEL_ORIGINS` | Para el panel web de caja | Dirección del panel publicado, p. ej. `https://mercadex-panel.onrender.com` (varias separadas por coma) |
 | `MERCADEX_KARDEX_STORAGE_PATH` | Para documentos Kardex | Ruta absoluta de un *Persistent Disk* (p. ej. `/var/data/kardex`) |
 
 Variables que ya **no** se usan y se pueden borrar: `MERCADEX_ENABLE_V15`, `MERCADEX_TARIFAS_DEV_MODE`.
@@ -68,3 +69,17 @@ Nunca poner credenciales de la base de producción en `appsettings*.json` ni en 
 4. Recién entonces poner la misma clave en Render como `MERCADEX_API_KEY`.
 
 Sin `MERCADEX_API_KEY` (desarrollo local) la API no exige la clave.
+
+## App de socios (móvil) y panel web de caja
+
+- El panel web (repositorio `mercadex-app`, carpeta `panel/`) usa `/api/panel/*` e inicia sesión
+  con `MERCADEX_ADMIN_USER` / `MERCADEX_ADMIN_PASSWORD`. Usa una contraseña larga: el inicio de
+  sesión queda accesible desde Internet (con límite de 5 intentos cada 5 minutos).
+
+- La app usa solo `/api/app/*`, protegido con la cuenta de cada socio (token JWT).
+  Esas rutas no exigen la clave interna del escritorio.
+- **Antes de entregar la app a los socios, `MERCADEX_API_KEY` debe estar configurada en Render.**
+  Sin ella, las rutas del escritorio (generar códigos, aprobar pagos, etc.) quedan abiertas
+  a cualquiera que conozca la dirección de la API.
+- Los comprobantes se guardan en la base de datos (tabla `pagos_reportados`), no en disco,
+  así que no se pierden en cada despliegue de Render.

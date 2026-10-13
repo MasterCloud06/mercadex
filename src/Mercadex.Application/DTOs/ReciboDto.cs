@@ -11,4 +11,8 @@ public sealed record ReciboDto(
     IEnumerable<DetalleReciboDto> Detalles,
     string? MotivoAnulacion = null,
     DateTimeOffset? FechaAnulacion = null,
-    string? AnuladoPor = null);
+    string? AnuladoPor = null)
+{
+    /// <summary>Usuario que registró el cobro.</summary>
+    public string? RegistradoPor { get; init; }
+}

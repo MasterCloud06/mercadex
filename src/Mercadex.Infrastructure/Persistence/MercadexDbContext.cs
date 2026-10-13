@@ -97,6 +97,9 @@ public DbSet<Egreso> Egresos =>
     public DbSet<Usuario> Usuarios =>
         Set<Usuario>();
 
+    public DbSet<ArchivoKardex> ArchivosKardex =>
+        Set<ArchivoKardex>();
+
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)
     {

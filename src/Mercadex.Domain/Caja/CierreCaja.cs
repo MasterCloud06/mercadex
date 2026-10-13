@@ -26,7 +26,9 @@ public sealed class CierreCaja : Entity
         decimal efectivoContado,
         string responsable,
         string? observacion,
-        DateTimeOffset fechaRegistroUtc)
+        DateTimeOffset fechaRegistroUtc,
+        decimal egresosEfectivo = 0m,
+        int cantidadEgresos = 0)
     {
         if (fecha == default)
             throw new ArgumentException("La fecha del cierre es obligatoria.", nameof(fecha));
@@ -37,6 +39,9 @@ public sealed class CierreCaja : Entity
         if (efectivo < 0 || qr < 0 || otros < 0 ||
             cantidadEfectivo < 0 || cantidadQr < 0 || cantidadOtros < 0)
             throw new ArgumentException("Los totales del cierre no pueden ser negativos.");
+
+        if (egresosEfectivo < 0 || cantidadEgresos < 0)
+            throw new ArgumentException("Los egresos del cierre no pueden ser negativos.");
 
         if (efectivoContado < 0)
             throw new ArgumentException("El efectivo contado no puede ser negativo.", nameof(efectivoContado));
@@ -53,7 +58,8 @@ public sealed class CierreCaja : Entity
         if (observacion?.Length > 500)
             throw new ArgumentException("La observación no puede superar 500 caracteres.", nameof(observacion));
 
-        var diferencia = efectivoContado - efectivo;
+        // En caja debe haber lo cobrado en efectivo menos lo pagado en efectivo.
+        var diferencia = efectivoContado - (efectivo - egresosEfectivo);
 
         // Toda diferencia de efectivo debe quedar explicada.
         if (diferencia != 0 && observacion is null)
@@ -70,6 +76,8 @@ public sealed class CierreCaja : Entity
         CantidadQr = cantidadQr;
         CantidadOtros = cantidadOtros;
         CantidadPagos = cantidadEfectivo + cantidadQr + cantidadOtros;
+        EgresosEfectivo = egresosEfectivo;
+        CantidadEgresos = cantidadEgresos;
         EfectivoContado = efectivoContado;
         Diferencia = diferencia;
         Responsable = responsable;
@@ -96,6 +104,14 @@ public sealed class CierreCaja : Entity
     public int CantidadOtros { get; private set; }
 
     public int CantidadPagos { get; private set; }
+
+    /// <summary>Egresos (gastos) pagados en efectivo ese día y en esa moneda.</summary>
+    public decimal EgresosEfectivo { get; private set; }
+
+    public int CantidadEgresos { get; private set; }
+
+    /// <summary>Efectivo que debe haber en caja: cobros en efectivo menos egresos en efectivo.</summary>
+    public decimal EfectivoEsperado => Efectivo - EgresosEfectivo;
 
     public decimal EfectivoContado { get; private set; }
 

@@ -1,5 +1,6 @@
 
 using Mercadex.Domain.Organizacion;
+using Mercadex.Domain.Socios;
 using Mercadex.Infrastructure.Persistence;
 using Mercadex.Infrastructure.Persistence.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -55,12 +56,83 @@ public sealed class KardexController : ControllerBase
                 k => k.UnidadComercialId == unidadId,
                 cancellationToken);
 
+        // ---------- Ficha completa (manual: Kardex de cada caseta) ----------
+
+        var pasillo = unidad.PasilloId is null
+            ? null
+            : await _db.Pasillos.AsNoTracking()
+                .Where(p => p.Id == unidad.PasilloId)
+                .Select(p => new { p.Codigo, p.Nombre })
+                .FirstOrDefaultAsync(cancellationToken);
+
+        var titular = await (
+                from a in _db.AsignacionesSocioCaseta.AsNoTracking()
+                join so in _db.Socios.AsNoTracking() on a.SocioId equals so.Id
+                where a.UnidadComercialId == unidadId && a.Activa
+                orderby a.FechaAsignacion descending
+                select new
+                {
+                    so.Id,
+                    nombre = so.Nombres + " " + so.Apellidos,
+                    documento = so.DocumentoIdentidad,
+                    telefono = so.Telefono,
+                    fechaRegistro = so.FechaRegistro
+                })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // Los documentos se buscan del socio del Kardex o, si no tiene, del titular.
+        var socioDocumentos = kardex?.SocioId ?? titular?.Id;
+
+        var documentos = socioDocumentos is null
+            ? new List<DocumentoResumen>()
+            : await _db.DocumentosKardex.AsNoTracking()
+                .Where(d => d.SocioId == socioDocumentos &&
+                            (d.UnidadComercialId == null || d.UnidadComercialId == unidadId))
+                .OrderByDescending(d => d.FechaRegistroUtc)
+                .Select(d => new DocumentoResumen(
+                    d.Id, (int)d.Tipo, d.Tipo.ToString(), d.NombreArchivo, d.TipoContenido,
+                    d.RegistradoPor, d.FechaRegistroUtc))
+                .ToListAsync(cancellationToken);
+
+        var tipos = documentos.Select(d => d.TipoNumero).ToHashSet();
+        var faltantes = CalcularFaltantes(
+                socioDocumentos is not null, tipos, kardex?.FechaIngreso,
+                kardex?.EstadoVida, kardex?.TipoDocumentoPropiedad,
+                kardex?.PropietarioAnterior, kardex?.AporteSocioPagado)
+            .Select(f => (object)new { tipo = f.Tipo, texto = f.Texto })
+            .ToList();
+
+        Response.Headers["Cache-Control"] = "no-store";
+
         return Ok(new
         {
             unidad,
-            kardex
+            kardex,
+            pasillo,
+            titular,
+            socioDocumentosId = socioDocumentos,
+            documentos = documentos.Select(d => new
+            {
+                id = d.Id,
+                tipo = d.TipoNumero,
+                tipoNombre = d.TipoNombre,
+                nombreArchivo = d.NombreArchivo,
+                tipoContenido = d.TipoContenido,
+                registradoPor = d.RegistradoPor,
+                fechaRegistroUtc = d.FechaRegistroUtc
+            }),
+            faltantes
         });
     }
+
+    private sealed record DocumentoResumen(
+        Guid Id,
+        int TipoNumero,
+        string TipoNombre,
+        string NombreArchivo,
+        string TipoContenido,
+        string RegistradoPor,
+        DateTimeOffset FechaRegistroUtc);
 
     // Crear o actualizar la ficha de una caseta.
 
@@ -204,6 +276,134 @@ public sealed class KardexController : ControllerBase
             kardex.Id,
             kardex.UnidadComercialId,
             kardex.FechaRegistro
+        });
+    }
+
+    /// <summary>
+    /// Lo que le falta al expediente según el manual (tabla del Kardex):
+    /// CI y foto escaneados, documento de propiedad si se indicó, óbito si
+    /// falleció, comprobante del aporte si lo pagó, fecha de ingreso y el
+    /// propietario anterior cuando el documento es Minuta.
+    /// </summary>
+    internal static List<(int? Tipo, string Texto)> CalcularFaltantes(
+        bool tieneSocio,
+        IReadOnlySet<int> tipos,
+        DateOnly? fechaIngreso,
+        string? estadoVida,
+        string? tipoDocumentoPropiedad,
+        string? propietarioAnterior,
+        bool? aportePagado)
+    {
+        var faltantes = new List<(int? Tipo, string Texto)>();
+
+        void Falta(TipoDocumentoKardex tipo, string texto)
+        {
+            if (!tipos.Contains((int)tipo))
+                faltantes.Add(((int)tipo, texto));
+        }
+
+        if (!tieneSocio)
+        {
+            faltantes.Add((null, "La caseta no tiene titular ni socio en el Kardex."));
+        }
+        else
+        {
+            Falta(TipoDocumentoKardex.Identidad, "CI escaneado");
+            Falta(TipoDocumentoKardex.Fotografia, "Foto 3x2");
+            if (!string.IsNullOrWhiteSpace(tipoDocumentoPropiedad))
+                Falta(TipoDocumentoKardex.Titularidad, "Documento de propiedad escaneado (Derechos Reales o Minuta)");
+            if (string.Equals(estadoVida, "FALLECIDO", StringComparison.OrdinalIgnoreCase))
+                Falta(TipoDocumentoKardex.Defuncion, "Certificado de óbito escaneado");
+            if (aportePagado == true)
+                Falta(TipoDocumentoKardex.ComprobanteAporte, "Comprobante del aporte de socio escaneado");
+        }
+
+        if (fechaIngreso is null)
+            faltantes.Add((null, "Fecha de ingreso"));
+
+        if (string.Equals(tipoDocumentoPropiedad, "MINUTA", StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(propietarioAnterior))
+            faltantes.Add((null, "Nombre del propietario anterior (Minuta)"));
+
+        return faltantes;
+    }
+
+    /// <summary>
+    /// Estado del expediente de todas las casetas, para la lista del Kardex:
+    /// titular, si ya tiene ficha y cuántas cosas le faltan.
+    /// </summary>
+    [HttpGet("resumen")]
+    public async Task<IActionResult> Resumen(CancellationToken ct)
+    {
+        var casetas = await _db.UnidadesComerciales.AsNoTracking()
+            .Where(u => u.Tipo == TipoUnidadComercial.Caseta)
+            .Select(u => new { u.Id, u.Codigo, u.Bloque, u.PasilloId, u.Activa })
+            .ToListAsync(ct);
+
+        var titulares = (await (
+                from a in _db.AsignacionesSocioCaseta.AsNoTracking()
+                join s in _db.Socios.AsNoTracking() on a.SocioId equals s.Id
+                where a.Activa
+                orderby a.FechaAsignacion descending
+                select new { a.UnidadComercialId, s.Id, Nombre = s.Apellidos + " " + s.Nombres })
+            .ToListAsync(ct))
+            .GroupBy(t => t.UnidadComercialId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var kardex = (await _db.KardexCasetas.AsNoTracking().ToListAsync(ct))
+            .GroupBy(k => k.UnidadComercialId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var documentos = (await _db.DocumentosKardex.AsNoTracking()
+                .Select(d => new { d.SocioId, d.UnidadComercialId, Tipo = (int)d.Tipo })
+                .ToListAsync(ct))
+            .ToLookup(d => d.SocioId);
+
+        var pasillos = await _db.Pasillos.AsNoTracking().ToDictionaryAsync(p => p.Id, p => p.Nombre, ct);
+
+        var filas = casetas.Select(u =>
+            {
+                kardex.TryGetValue(u.Id, out var k);
+                titulares.TryGetValue(u.Id, out var t);
+                var socio = k?.SocioId ?? t?.Id;
+                var tipos = socio is null
+                    ? new HashSet<int>()
+                    : documentos[socio.Value]
+                        .Where(d => d.UnidadComercialId == null || d.UnidadComercialId == u.Id)
+                        .Select(d => d.Tipo)
+                        .ToHashSet();
+
+                var faltan = CalcularFaltantes(socio is not null, tipos, k?.FechaIngreso, k?.EstadoVida,
+                    k?.TipoDocumentoPropiedad, k?.PropietarioAnterior, k?.AporteSocioPagado);
+
+                return new
+                {
+                    unidadId = u.Id,
+                    codigo = u.Codigo,
+                    bloque = u.Bloque,
+                    pasillo = u.PasilloId is { } p && pasillos.TryGetValue(p, out var np) ? np : null,
+                    activa = u.Activa,
+                    titular = t?.Nombre,
+                    tieneKardex = k is not null,
+                    fallecido = string.Equals(k?.EstadoVida, "FALLECIDO", StringComparison.OrdinalIgnoreCase),
+                    documentos = tipos.Count,
+                    faltan = faltan.Count,
+                    faltantes = faltan.Select(f => f.Texto).ToList()
+                };
+            })
+            .OrderBy(f => int.TryParse(f.codigo, out var n) ? n : int.MaxValue)
+            .ThenBy(f => f.codigo, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        Response.Headers["Cache-Control"] = "no-store";
+
+        return Ok(new
+        {
+            total = filas.Count,
+            completos = filas.Count(f => f.faltan == 0),
+            sinKardex = filas.Count(f => !f.tieneKardex),
+            sinTitular = filas.Count(f => f.titular is null),
+            casetas = filas
         });
     }
 

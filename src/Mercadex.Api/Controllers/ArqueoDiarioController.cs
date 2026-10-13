@@ -60,11 +60,15 @@ public sealed class ArqueoDiarioController : ControllerBase
                     cantidadEfectivo = r.CantidadEfectivo,
                     cantidadQr = r.CantidadQr,
                     cantidadOtros = r.CantidadOtros,
+                    egresosEfectivo = r.EgresosEfectivo,
+                    cantidadEgresos = r.CantidadEgresos,
+                    efectivoEsperado = r.EfectivoEsperado,
                     cerrado = cierre != null,
                     cierre = cierre == null ? null : (object?)AResumenCierre(cierre, r.Moneda),
                     // Cobros o anulaciones posteriores al cierre.
                     cambiosPosteriores = cierre != null &&
-                        (cierre.Total != r.Total || cierre.CantidadPagos != r.Cantidad)
+                        (cierre.Total != r.Total || cierre.CantidadPagos != r.Cantidad ||
+                         cierre.EgresosEfectivo != r.EgresosEfectivo)
                 };
             })
             .ToList();
@@ -90,6 +94,9 @@ public sealed class ArqueoDiarioController : ControllerBase
                 cantidadEfectivo = 0,
                 cantidadQr = 0,
                 cantidadOtros = 0,
+                egresosEfectivo = 0m,
+                cantidadEgresos = 0,
+                efectivoEsperado = 0m,
                 cerrado = true,
                 cierre = (object?)AResumenCierre(cierre, codigo.Codigo),
                 cambiosPosteriores = true
@@ -194,7 +201,9 @@ public sealed class ArqueoDiarioController : ControllerBase
                 ? User.Identity.Name!
                 : solicitud.Responsable,
             solicitud.Observacion,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            resumen?.EgresosEfectivo ?? 0,
+            resumen?.CantidadEgresos ?? 0);
 
         _db.CierresCaja.Add(cierre);
 
@@ -262,6 +271,9 @@ public sealed class ArqueoDiarioController : ControllerBase
         cantidadEfectivo = c.CantidadEfectivo,
         cantidadQr = c.CantidadQr,
         cantidadOtros = c.CantidadOtros,
+        egresosEfectivo = c.EgresosEfectivo,
+        cantidadEgresos = c.CantidadEgresos,
+        efectivoEsperado = c.EfectivoEsperado,
         efectivoContado = c.EfectivoContado,
         diferencia = c.Diferencia,
         responsable = c.Responsable,
@@ -280,7 +292,13 @@ public sealed class ArqueoDiarioController : ControllerBase
         int Cantidad,
         int CantidadEfectivo,
         int CantidadQr,
-        int CantidadOtros);
+        int CantidadOtros,
+        decimal EgresosEfectivo = 0m,
+        int CantidadEgresos = 0)
+    {
+        /// <summary>Lo que debe haber en caja: cobrado en efectivo menos gastado en efectivo.</summary>
+        public decimal EfectivoEsperado => Efectivo - EgresosEfectivo;
+    }
 
     private sealed record Incidencia(string Moneda, int Cantidad, decimal Monto);
 
@@ -341,6 +359,27 @@ public sealed class ArqueoDiarioController : ControllerBase
                 g.Count(x => x.FormaPago == FormaPago.Efectivo),
                 g.Count(x => x.FormaPago == FormaPago.QR),
                 g.Count(x => x.FormaPago != FormaPago.Efectivo && x.FormaPago != FormaPago.QR)))
+            .ToList();
+
+        // Egresos (gastos) pagados en efectivo ese día: salen de la caja.
+        var egresos = await (
+                from e in _db.Egresos.AsNoTracking()
+                join m in _db.Monedas.AsNoTracking() on e.MonedaId equals m.Id
+                where e.Fecha == fecha && !e.Anulado && e.FormaPago.ToLower() == "efectivo"
+                group e by new { e.MonedaId, m.Codigo, m.Simbolo } into g
+                select new { g.Key.MonedaId, g.Key.Codigo, g.Key.Simbolo, Total = g.Sum(x => x.Monto), Cantidad = g.Count() })
+            .ToListAsync(ct);
+
+        foreach (var eg in egresos)
+        {
+            var i = resumen.FindIndex(r => r.MonedaId == eg.MonedaId);
+
+            resumen = i >= 0
+                ? resumen.Select((r, j) => j == i ? r with { EgresosEfectivo = eg.Total, CantidadEgresos = eg.Cantidad } : r).ToList()
+                : resumen.Append(new ResumenMoneda(eg.MonedaId, eg.Codigo, eg.Simbolo, 0, 0, 0, 0, 0, 0, 0, 0, eg.Total, eg.Cantidad)).ToList();
+        }
+
+        resumen = resumen
             .OrderBy(x => x.Moneda == "BOB" ? 0 : 1)
             .ThenBy(x => x.Moneda)
             .ToList();

@@ -148,9 +148,28 @@ public sealed class Egreso
 
     public string? MotivoAnulacion { get; private set; }
 
+    /// <summary>Usuario que registró el egreso (vacío en los anteriores al inicio de sesión).</summary>
+    public string? RegistradoPor { get; private set; }
+
+    /// <summary>Usuario que anuló el egreso.</summary>
+    public string? AnuladoPor { get; private set; }
+
+    public void AsignarRegistradoPor(string? usuario) =>
+        RegistradoPor = Recortar(usuario);
+
+    private static string? Recortar(string? texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto))
+            return null;
+
+        var limpio = texto.Trim();
+        return limpio.Length > 120 ? limpio[..120] : limpio;
+    }
+
     public void Anular(
         string motivo,
-        DateTimeOffset fecha)
+        DateTimeOffset fecha,
+        string? anuladoPor = null)
     {
         if (Anulado)
             throw new InvalidOperationException(
@@ -170,5 +189,6 @@ public sealed class Egreso
         Anulado = true;
         FechaAnulacion = fecha;
         MotivoAnulacion = motivo;
+        AnuladoPor = Recortar(anuladoPor);
     }
 }

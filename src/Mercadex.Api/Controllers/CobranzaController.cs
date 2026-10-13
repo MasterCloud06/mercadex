@@ -221,7 +221,7 @@ public sealed class CobranzaController : ControllerBase
         await _db.SaveChangesAsync(ct);
         await transaccion.CommitAsync(ct);
 
-        var respuesta = await RespuestaAsync(filas, ct);
+        var respuesta = await RespuestaAsync(filas!, ct);
 
         return Ok(new
         {

@@ -90,6 +90,7 @@ public sealed class RecibosController : ControllerBase
                 total = x.p.Monto,
                 estado = x.r.Estado.ToString(),
                 registradoPor = x.r.RegistradoPor,
+                cargoEmisor = x.r.CargoEmisor,
                 anuladoPor = x.r.AnuladoPor,
                 fechaAnulacion = x.r.FechaAnulacion,
                 motivoAnulacion = x.r.MotivoAnulacion,

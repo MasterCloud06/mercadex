@@ -409,6 +409,10 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
 
+                    b.Property<string>("CargoEmisor")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
                     b.Property<int>("Estado")
                         .HasColumnType("integer");
 
@@ -932,6 +936,10 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset?>("BloqueadoHastaUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Cargo")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
 
                     b.Property<string>("ContrasenaHash")
                         .IsRequired()

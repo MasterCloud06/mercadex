@@ -27,9 +27,9 @@ public sealed class UsuariosController : ControllerBase
         _config = config;
     }
 
-    public sealed record CrearUsuarioRequest(string? NombreUsuario, string? NombreCompleto, string? Rol);
+    public sealed record CrearUsuarioRequest(string? NombreUsuario, string? NombreCompleto, string? Rol, string? Cargo = null);
 
-    public sealed record ActualizarUsuarioRequest(string? NombreCompleto, string? Rol);
+    public sealed record ActualizarUsuarioRequest(string? NombreCompleto, string? Rol, string? Cargo = null);
 
     [HttpGet]
     public async Task<IActionResult> Listar(CancellationToken ct)
@@ -52,6 +52,7 @@ public sealed class UsuariosController : ControllerBase
             nombreUsuario = u.NombreUsuario,
             nombreCompleto = u.NombreCompleto,
             rol = u.Rol.ToString(),
+            cargo = u.Cargo,
             activo = u.Activo,
             bloqueado = u.EstaBloqueado(ahora),
             debeCambiarContrasena = u.DebeCambiarContrasena,
@@ -92,6 +93,7 @@ public sealed class UsuariosController : ControllerBase
         try
         {
             usuario = new Usuario(nombreUsuario, r?.NombreCompleto ?? "", rol, SeguridadApp.Huella(temporal), DateTimeOffset.UtcNow);
+            usuario.AsignarCargo(r?.Cargo);
         }
         catch (ArgumentException ex)
         {
@@ -130,6 +132,7 @@ public sealed class UsuariosController : ControllerBase
         try
         {
             usuario.Actualizar(r?.NombreCompleto ?? "", rol);
+            usuario.AsignarCargo(r?.Cargo);
         }
         catch (ArgumentException ex)
         {

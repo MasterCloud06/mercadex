@@ -39,6 +39,37 @@ public sealed class Usuario : Entity
 
     public RolUsuario Rol { get; private set; }
 
+    /// <summary>
+    /// Cargo en la Asociación (por ejemplo, Cajera o Tesorero). Sale en los
+    /// recibos que emite. Si está vacío se usa el rol.
+    /// </summary>
+    public string? Cargo { get; private set; }
+
+    /// <summary>El cargo que se imprime: el escrito o, si no hay, el rol.</summary>
+    public string CargoParaRecibo => string.IsNullOrWhiteSpace(Cargo) ? TextoRol(Rol) : Cargo!;
+
+    public static string TextoRol(RolUsuario rol) => rol switch
+    {
+        RolUsuario.Administrador => "Administrador",
+        RolUsuario.Cajero => "Cajero",
+        _ => "Consulta"
+    };
+
+    public void AsignarCargo(string? cargo)
+    {
+        var limpio = cargo?.Trim();
+        if (string.IsNullOrEmpty(limpio))
+        {
+            Cargo = null;
+            return;
+        }
+
+        if (limpio.Length > 80)
+            throw new ArgumentException("El cargo admite hasta 80 caracteres.", nameof(cargo));
+
+        Cargo = limpio;
+    }
+
     public string ContrasenaHash { get; private set; } = "";
 
     /// <summary>

@@ -86,13 +86,22 @@ public sealed class Recibo : Entity
     /// <summary>Usuario que registró el cobro (vacío en recibos anteriores al inicio de sesión).</summary>
     public string? RegistradoPor { get; private set; }
 
-    public void AsignarRegistradoPor(string? usuario)
+    /// <summary>Cargo de quien emitió el recibo al momento de emitirlo (por ejemplo, Cajera).</summary>
+    public string? CargoEmisor { get; private set; }
+
+    public void AsignarRegistradoPor(string? usuario, string? cargo = null)
     {
         if (string.IsNullOrWhiteSpace(usuario))
             return;
 
         var limpio = usuario.Trim();
         RegistradoPor = limpio.Length > 120 ? limpio[..120] : limpio;
+
+        if (!string.IsNullOrWhiteSpace(cargo))
+        {
+            var c = cargo.Trim();
+            CargoEmisor = c.Length > 80 ? c[..80] : c;
+        }
     }
 
     public IReadOnlyCollection<DetalleRecibo> Detalles =>

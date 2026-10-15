@@ -42,7 +42,8 @@ public sealed class ReciboRepository : IReciboRepository
                 r.FechaAnulacion,
                 r.AnuladoPor)
             {
-                RegistradoPor = r.RegistradoPor
+                RegistradoPor = r.RegistradoPor,
+                CargoEmisor = r.CargoEmisor
             })
             .FirstOrDefaultAsync();
     }
@@ -73,7 +74,8 @@ public sealed class ReciboRepository : IReciboRepository
                 r.FechaAnulacion,
                 r.AnuladoPor)
             {
-                RegistradoPor = r.RegistradoPor
+                RegistradoPor = r.RegistradoPor,
+                CargoEmisor = r.CargoEmisor
             })
             .ToListAsync();
     }

@@ -17,10 +17,16 @@ namespace Mercadex.Api.Controllers;
 /// clave interna del escritorio porque un navegador no puede guardarla.
 /// </summary>
 [ApiController]
-[Authorize(Roles = "Administrador")]
+[Authorize]
 public sealed class PanelCajaController : ControllerBase
 {
     private static readonly TimeSpan ZonaBolivia = TimeSpan.FromHours(-4);
+
+    /// <summary>Dar acceso a socios y configurar el QR: solo el administrador.</summary>
+    private const string Admin = "Administrador";
+
+    /// <summary>Revisar pagos QR: el administrador y la cajera (decisión de la directiva).</summary>
+    private const string CajaQr = "Administrador,Cajero";
 
     private readonly MercadexDbContext _db;
     private readonly ICajaService _caja;
@@ -47,6 +53,7 @@ public sealed class PanelCajaController : ControllerBase
     /// Busca socios por nombre, apellido o carnet, con sus casetas de
     /// titular y el estado de su acceso a la app.
     /// </summary>
+    [Authorize(Roles = Admin)]
     [HttpGet("api/panel/socios")]
     public async Task<IActionResult> Socios([FromQuery] string? buscar, CancellationToken ct)
     {
@@ -101,6 +108,7 @@ public sealed class PanelCajaController : ControllerBase
         }));
     }
 
+    [Authorize(Roles = Admin)]
     [HttpGet("api/panel/cuentas/{socioId:guid}")]
     public async Task<IActionResult> EstadoCuenta(Guid socioId, CancellationToken ct)
     {
@@ -135,6 +143,7 @@ public sealed class PanelCajaController : ControllerBase
     /// su contraseña deja de servir y debe activarla otra vez.
     /// El código solo se muestra en esta respuesta.
     /// </summary>
+    [Authorize(Roles = Admin)]
     [HttpPost("api/panel/cuentas/{socioId:guid}/codigo")]
     public async Task<IActionResult> GenerarCodigo(Guid socioId, CancellationToken ct)
     {
@@ -171,6 +180,7 @@ public sealed class PanelCajaController : ControllerBase
         });
     }
 
+    [Authorize(Roles = Admin)]
     [HttpPost("api/panel/cuentas/{socioId:guid}/desactivar")]
     public async Task<IActionResult> Desactivar(Guid socioId, CancellationToken ct)
     {
@@ -185,6 +195,7 @@ public sealed class PanelCajaController : ControllerBase
 
     // ===================================================== COMPROBANTES
 
+    [Authorize(Roles = CajaQr)]
     [HttpGet("api/panel/pagos")]
     public async Task<IActionResult> Listar([FromQuery] string? estado, CancellationToken ct)
     {
@@ -254,6 +265,28 @@ public sealed class PanelCajaController : ControllerBase
         }));
     }
 
+    /// <summary>
+    /// Pagos QR por revisar, para el aviso del escritorio (se consulta cada minuto).
+    /// </summary>
+    [Authorize(Roles = CajaQr)]
+    [HttpGet("api/panel/pagos/pendientes")]
+    public async Task<IActionResult> Pendientes(CancellationToken ct)
+    {
+        var pendientes = await _db.PagosReportados.AsNoTracking()
+            .Where(p => p.Estado == EstadoPagoReportado.Pendiente)
+            .Select(p => new { p.Id, p.FechaReporteUtc })
+            .ToListAsync(ct);
+
+        Response.Headers["Cache-Control"] = "no-store";
+        return Ok(new
+        {
+            cantidad = pendientes.Count,
+            masReciente = pendientes.Count == 0 ? (DateTimeOffset?)null : pendientes.Max(p => p.FechaReporteUtc),
+            ids = pendientes.Select(p => p.Id)
+        });
+    }
+
+    [Authorize(Roles = CajaQr)]
     [HttpGet("api/panel/pagos/{id:guid}/comprobante")]
     public async Task<IActionResult> Comprobante(Guid id, CancellationToken ct)
     {
@@ -269,6 +302,7 @@ public sealed class PanelCajaController : ControllerBase
     /// Aprueba el comprobante: registra el cobro como pago QR con el número
     /// de transacción informado y emite el recibo, igual que en la caja.
     /// </summary>
+    [Authorize(Roles = CajaQr)]
     [HttpPost("api/panel/pagos/{id:guid}/aprobar")]
     public async Task<IActionResult> Aprobar(Guid id, [FromBody] RevisionRequest r, CancellationToken ct)
     {
@@ -281,8 +315,9 @@ public sealed class PanelCajaController : ControllerBase
 
         // Con un usuario propio, quien revisa es el de la sesión;
         // el administrador principal escribe su nombre.
+        var (nombreSesion, cargo) = await EmisorRecibo.ObtenerAsync(User, _db, ct);
         var revisadoPor = User.HasClaim(c => c.Type == Mercadex.Api.Seguridad.SeguridadUsuarios.ClaimUsuario)
-            ? User.Identity?.Name?.Trim() ?? ""
+            ? nombreSesion ?? ""
             : r.RevisadoPor?.Trim() ?? "";
         if (revisadoPor.Length < 3)
             return BadRequest(new { mensaje = "Escribe tu nombre (quien revisa)." });
@@ -306,7 +341,8 @@ public sealed class PanelCajaController : ControllerBase
             TipoCambio: 1m,
             Referencia: pago.Referencia,
             Items: conceptos.Select(c => new ItemCobroDto(c.Id, c.Nombre)).ToList()),
-            registradoPor: revisadoPor);
+            registradoPor: revisadoPor,
+            cargoEmisor: cargo);
 
         // Recargar: el cobro usó su propia transacción.
         _db.ChangeTracker.Clear();
@@ -322,6 +358,7 @@ public sealed class PanelCajaController : ControllerBase
         });
     }
 
+    [Authorize(Roles = CajaQr)]
     [HttpPost("api/panel/pagos/{id:guid}/rechazar")]
     public async Task<IActionResult> Rechazar(Guid id, [FromBody] RevisionRequest r, CancellationToken ct)
     {
@@ -341,6 +378,7 @@ public sealed class PanelCajaController : ControllerBase
 
     // ===================================================== QR DE COBRO
 
+    [Authorize(Roles = Admin)]
     [HttpGet("api/panel/configuracion-pago")]
     public async Task<IActionResult> Configuracion(CancellationToken ct)
     {
@@ -356,6 +394,7 @@ public sealed class PanelCajaController : ControllerBase
         });
     }
 
+    [Authorize(Roles = Admin)]
     [HttpPut("api/panel/configuracion-pago")]
     [RequestSizeLimit(4 * 1024 * 1024)]
     public async Task<IActionResult> GuardarConfiguracion([FromBody] ConfiguracionRequest r, CancellationToken ct)

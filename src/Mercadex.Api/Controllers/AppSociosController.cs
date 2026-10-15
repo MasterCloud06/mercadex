@@ -223,6 +223,7 @@ public sealed class AppSociosController : ControllerBase
                 select new
                 {
                     r.Id, r.Numero, r.UnidadComercialId, r.FechaEmision, r.Estado,
+                    r.MotivoAnulacion, r.FechaAnulacion, r.RegistradoPor, r.CargoEmisor,
                     p.MonedaId, p.Monto, p.FormaPago, p.Referencia
                 })
             .Take(100)
@@ -241,6 +242,12 @@ public sealed class AppSociosController : ControllerBase
             caseta = codigoUnidad.GetValueOrDefault(r.UnidadComercialId, "?"),
             fecha = r.FechaEmision.ToOffset(ZonaBolivia),
             anulado = r.Estado == EstadoRecibo.Anulado,
+            // Transparencia con el socio: por qué y cuándo se anuló.
+            motivoAnulacion = r.Estado == EstadoRecibo.Anulado ? r.MotivoAnulacion : null,
+            fechaAnulacion = r.Estado == EstadoRecibo.Anulado ? r.FechaAnulacion?.ToOffset(ZonaBolivia) : null,
+            emitidoPor = string.IsNullOrWhiteSpace(r.RegistradoPor)
+                ? null
+                : r.RegistradoPor + (string.IsNullOrWhiteSpace(r.CargoEmisor) ? "" : " — " + r.CargoEmisor),
             moneda = monedas.GetValueOrDefault(r.MonedaId, "?"),
             total = r.Monto,
             formaPago = r.FormaPago switch

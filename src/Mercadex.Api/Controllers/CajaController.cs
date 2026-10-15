@@ -104,14 +104,15 @@ public async Task<IActionResult> AnularRecibo(
 
 [HttpPost("cobrar")]
 public async Task<ActionResult<ResultadoCobroDto>> ProcesarCobro(
-    ProcesarCobroDto dto)
+    ProcesarCobroDto dto,
+    [FromServices] Mercadex.Infrastructure.Persistence.MercadexDbContext db,
+    CancellationToken ct)
 {
-    var registradoPor = User.Identity?.IsAuthenticated == true
-        ? User.Identity.Name
-        : null;
+    // Nombre completo y cargo de quien emite el recibo.
+    var (registradoPor, cargo) = await Mercadex.Api.Seguridad.EmisorRecibo.ObtenerAsync(User, db, ct);
 
     var resultado = await _service
-        .ProcesarCobroAsync(dto, registradoPor);
+        .ProcesarCobroAsync(dto, registradoPor, cargo);
 
     return Ok(resultado);
 }

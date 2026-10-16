@@ -17,10 +17,16 @@ namespace Mercadex.Api.Controllers;
 /// clave interna del escritorio porque un navegador no puede guardarla.
 /// </summary>
 [ApiController]
-[Authorize(Roles = "Administrador")]
+[Authorize]
 public sealed class PanelCajaController : ControllerBase
 {
     private static readonly TimeSpan ZonaBolivia = TimeSpan.FromHours(-4);
+
+    /// <summary>Dar acceso a socios y configurar el QR: solo el administrador.</summary>
+    private const string Admin = "Administrador";
+
+    /// <summary>Revisar pagos QR: el administrador y la cajera (decisión de la directiva).</summary>
+    private const string CajaQr = "Administrador,Cajero";
 
     private readonly MercadexDbContext _db;
     private readonly ICajaService _caja;
@@ -47,6 +53,7 @@ public sealed class PanelCajaController : ControllerBase
     /// Busca socios por nombre, apellido o carnet, con sus casetas de
     /// titular y el estado de su acceso a la app.
     /// </summary>
+    [Authorize(Roles = Admin)]
     [HttpGet("api/panel/socios")]
     public async Task<IActionResult> Socios([FromQuery] string? buscar, CancellationToken ct)
     {
@@ -101,6 +108,7 @@ public sealed class PanelCajaController : ControllerBase
         }));
     }
 
+    [Authorize(Roles = Admin)]
     [HttpGet("api/panel/cuentas/{socioId:guid}")]
     public async Task<IActionResult> EstadoCuenta(Guid socioId, CancellationToken ct)
     {
@@ -135,6 +143,7 @@ public sealed class PanelCajaController : ControllerBase
     /// su contraseña deja de servir y debe activarla otra vez.
     /// El código solo se muestra en esta respuesta.
     /// </summary>
+    [Authorize(Roles = Admin)]
     [HttpPost("api/panel/cuentas/{socioId:guid}/codigo")]
     public async Task<IActionResult> GenerarCodigo(Guid socioId, CancellationToken ct)
     {
@@ -171,6 +180,7 @@ public sealed class PanelCajaController : ControllerBase
         });
     }
 
+    [Authorize(Roles = Admin)]
     [HttpPost("api/panel/cuentas/{socioId:guid}/desactivar")]
     public async Task<IActionResult> Desactivar(Guid socioId, CancellationToken ct)
     {
@@ -185,6 +195,7 @@ public sealed class PanelCajaController : ControllerBase
 
     // ===================================================== COMPROBANTES
 
+    [Authorize(Roles = CajaQr)]
     [HttpGet("api/panel/pagos")]
     public async Task<IActionResult> Listar([FromQuery] string? estado, CancellationToken ct)
     {
@@ -220,6 +231,15 @@ public sealed class PanelCajaController : ControllerBase
             .ToListAsync(ct);
 
         var todasIds = filas.SelectMany(f => f.ObligacionIds).Distinct().ToList();
+
+        // Deudas que ya no están pendientes (por ejemplo, se cobraron en ventanilla
+        // mientras el pago QR esperaba revisión): ese pago ya no se puede aprobar.
+        var yaNoPendientes = (await _db.Obligaciones.AsNoTracking()
+                .Where(o => todasIds.Contains(o.Id) && o.Estado != Mercadex.Domain.Cobranza.EstadoObligacion.Pendiente)
+                .Select(o => o.Id)
+                .ToListAsync(ct))
+            .ToHashSet();
+
         var conceptos = await (
                 from o in _db.Obligaciones.AsNoTracking()
                 join c in _db.ConceptosCobro.AsNoTracking() on o.ConceptoCobroId equals c.Id
@@ -247,6 +267,9 @@ public sealed class PanelCajaController : ControllerBase
             motivoRechazo = f.MotivoRechazo,
             revisadoPor = f.RevisadoPor,
             numeroRecibo = f.NumeroRecibo,
+            deudasYaCobradas = f.Estado == EstadoPagoReportado.Pendiente
+                ? f.ObligacionIds.Count(yaNoPendientes.Contains)
+                : 0,
             deudas = string.Join(", ", f.ObligacionIds.Select(id =>
                 conceptos.TryGetValue(id, out var c)
                     ? c.Nombre + (c.PeriodoMes.HasValue ? $" {c.PeriodoMes:00}/{c.PeriodoAnio}" : "")
@@ -254,6 +277,57 @@ public sealed class PanelCajaController : ControllerBase
         }));
     }
 
+    /// <summary>
+    /// Pagos QR por revisar, para el aviso del escritorio (se consulta cada minuto).
+    /// </summary>
+    [Authorize(Roles = CajaQr)]
+    [HttpGet("api/panel/pagos/pendientes")]
+    public async Task<IActionResult> Pendientes(CancellationToken ct)
+    {
+        var pendientes = await _db.PagosReportados.AsNoTracking()
+            .Where(p => p.Estado == EstadoPagoReportado.Pendiente)
+            .Select(p => new { p.Id, p.FechaReporteUtc })
+            .ToListAsync(ct);
+
+        Response.Headers["Cache-Control"] = "no-store";
+        return Ok(new
+        {
+            cantidad = pendientes.Count,
+            masReciente = pendientes.Count == 0 ? (DateTimeOffset?)null : pendientes.Max(p => p.FechaReporteUtc),
+            ids = pendientes.Select(p => p.Id)
+        });
+    }
+
+    /// <summary>
+    /// Pagos QR en revisión de una caseta, con las deudas que cubren. Lo usa la
+    /// pantalla Cobrar para avisar y no cobrar dos veces lo mismo.
+    /// </summary>
+    [Authorize(Roles = CajaQr)]
+    [HttpGet("api/panel/pagos/en-revision")]
+    public async Task<IActionResult> EnRevision([FromQuery] Guid unidadId, CancellationToken ct)
+    {
+        var monedas = await _db.Monedas.AsNoTracking().ToDictionaryAsync(m => m.Id, m => m.Codigo, ct);
+
+        var pagos = await _db.PagosReportados.AsNoTracking()
+            .Where(p => p.UnidadComercialId == unidadId && p.Estado == EstadoPagoReportado.Pendiente)
+            .OrderBy(p => p.FechaReporteUtc)
+            .Select(p => new { p.Id, p.Monto, p.MonedaId, p.Referencia, p.FechaReporteUtc, p.ObligacionIds })
+            .ToListAsync(ct);
+
+        Response.Headers["Cache-Control"] = "no-store";
+
+        return Ok(pagos.Select(p => new
+        {
+            id = p.Id,
+            moneda = monedas.GetValueOrDefault(p.MonedaId, "?"),
+            monto = p.Monto,
+            referencia = p.Referencia,
+            fecha = p.FechaReporteUtc.ToOffset(ZonaBolivia),
+            obligacionIds = p.ObligacionIds
+        }));
+    }
+
+    [Authorize(Roles = CajaQr)]
     [HttpGet("api/panel/pagos/{id:guid}/comprobante")]
     public async Task<IActionResult> Comprobante(Guid id, CancellationToken ct)
     {
@@ -269,6 +343,7 @@ public sealed class PanelCajaController : ControllerBase
     /// Aprueba el comprobante: registra el cobro como pago QR con el número
     /// de transacción informado y emite el recibo, igual que en la caja.
     /// </summary>
+    [Authorize(Roles = CajaQr)]
     [HttpPost("api/panel/pagos/{id:guid}/aprobar")]
     public async Task<IActionResult> Aprobar(Guid id, [FromBody] RevisionRequest r, CancellationToken ct)
     {
@@ -281,8 +356,9 @@ public sealed class PanelCajaController : ControllerBase
 
         // Con un usuario propio, quien revisa es el de la sesión;
         // el administrador principal escribe su nombre.
+        var (nombreSesion, cargo) = await EmisorRecibo.ObtenerAsync(User, _db, ct);
         var revisadoPor = User.HasClaim(c => c.Type == Mercadex.Api.Seguridad.SeguridadUsuarios.ClaimUsuario)
-            ? User.Identity?.Name?.Trim() ?? ""
+            ? nombreSesion ?? ""
             : r.RevisadoPor?.Trim() ?? "";
         if (revisadoPor.Length < 3)
             return BadRequest(new { mensaje = "Escribe tu nombre (quien revisa)." });
@@ -306,13 +382,17 @@ public sealed class PanelCajaController : ControllerBase
             TipoCambio: 1m,
             Referencia: pago.Referencia,
             Items: conceptos.Select(c => new ItemCobroDto(c.Id, c.Nombre)).ToList()),
-            registradoPor: revisadoPor);
+            registradoPor: revisadoPor,
+            cargoEmisor: cargo,
+            registradoPorId: SeguridadUsuarios.IdResponsable(User));
 
         // Recargar: el cobro usó su propia transacción.
         _db.ChangeTracker.Clear();
         pago = await _db.PagosReportados.FirstAsync(x => x.Id == id, ct);
         pago.Aprobar(revisadoPor, resultado.Recibo.Id, resultado.Recibo.Numero, DateTimeOffset.UtcNow);
         await _db.SaveChangesAsync(ct);
+
+        HttpContext.Detalle(await DetallePagoAsync(pago, ct) + $" · Recibo N.º {resultado.Recibo.Numero}");
 
         return Ok(new
         {
@@ -322,6 +402,7 @@ public sealed class PanelCajaController : ControllerBase
         });
     }
 
+    [Authorize(Roles = CajaQr)]
     [HttpPost("api/panel/pagos/{id:guid}/rechazar")]
     public async Task<IActionResult> Rechazar(Guid id, [FromBody] RevisionRequest r, CancellationToken ct)
     {
@@ -336,11 +417,27 @@ public sealed class PanelCajaController : ControllerBase
         pago.Rechazar(rechazadoPor, r.Motivo ?? "", DateTimeOffset.UtcNow);
         await _db.SaveChangesAsync(ct);
 
+        HttpContext.Detalle(await DetallePagoAsync(pago, ct) + $" · Motivo: {r.Motivo}");
+
         return Ok(new { mensaje = "Pago rechazado. El socio verá el motivo en la app." });
+    }
+
+    /// <summary>«Socio · Caseta · monto · transacción» para el registro de cambios.</summary>
+    private async Task<string> DetallePagoAsync(PagoReportado pago, CancellationToken ct)
+    {
+        var socio = await _db.Socios.AsNoTracking().Where(s => s.Id == pago.SocioId)
+            .Select(s => s.Nombres + " " + s.Apellidos).FirstOrDefaultAsync(ct);
+        var caseta = await _db.UnidadesComerciales.AsNoTracking().Where(u => u.Id == pago.UnidadComercialId)
+            .Select(u => u.Codigo).FirstOrDefaultAsync(ct);
+        var moneda = await _db.Monedas.AsNoTracking().Where(m => m.Id == pago.MonedaId)
+            .Select(m => m.Codigo).FirstOrDefaultAsync(ct);
+
+        return $"{socio} · Caseta {caseta} · {Cambios.Monto(pago.Monto, moneda ?? "")} · Transacción {pago.Referencia}";
     }
 
     // ===================================================== QR DE COBRO
 
+    [Authorize(Roles = Admin)]
     [HttpGet("api/panel/configuracion-pago")]
     public async Task<IActionResult> Configuracion(CancellationToken ct)
     {
@@ -356,6 +453,7 @@ public sealed class PanelCajaController : ControllerBase
         });
     }
 
+    [Authorize(Roles = Admin)]
     [HttpPut("api/panel/configuracion-pago")]
     [RequestSizeLimit(4 * 1024 * 1024)]
     public async Task<IActionResult> GuardarConfiguracion([FromBody] ConfiguracionRequest r, CancellationToken ct)

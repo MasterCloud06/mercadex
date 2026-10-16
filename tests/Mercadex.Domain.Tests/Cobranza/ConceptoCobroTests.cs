@@ -1,4 +1,4 @@
-﻿using Mercadex.Domain.Cobranza;
+using Mercadex.Domain.Cobranza;
 
 namespace Mercadex.Domain.Tests.Cobranza;
 
@@ -23,5 +23,23 @@ public sealed class ConceptoCobroTests
             new ConceptoCobro(
                 "MENS",
                 ""));
+    }
+
+    [Fact]
+    public void Desactivar_y_corregir_conserva_el_codigo()
+    {
+        var concepto = new ConceptoCobro("luz", "Excedente de lus");
+
+        concepto.CambiarNombre(" Excedente de luz ");
+        concepto.CambiarDescripcion("  ");
+        concepto.Desactivar();
+
+        Assert.Equal("LUZ", concepto.Codigo);
+        Assert.Equal("Excedente de luz", concepto.Nombre);
+        Assert.Null(concepto.Descripcion);
+        Assert.False(concepto.Activo);
+
+        concepto.Activar();
+        Assert.True(concepto.Activo);
     }
 }

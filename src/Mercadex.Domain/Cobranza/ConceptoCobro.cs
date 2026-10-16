@@ -54,6 +54,11 @@ public sealed class ConceptoCobro : Entity
         Nombre = nombre.Trim();
     }
 
+    public void CambiarDescripcion(string? descripcion)
+    {
+        Descripcion = LimpiarOpcional(descripcion);
+    }
+
     public void Activar()
     {
         Activo = true;

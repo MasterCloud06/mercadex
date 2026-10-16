@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Mercadex.Api.Seguridad;
 using Mercadex.Domain.Caja;
 using Mercadex.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
@@ -22,9 +24,15 @@ public sealed class ArqueoDiarioController : ControllerBase
     // CONSULTA DEL DÍA (con estado de cierre)
     // =============================================================
 
+    /// <param name="caja">
+    /// «mia» (por defecto): la caja de quien consulta. «general»: todo el
+    /// día, de todas las cajeras. Otro valor: la caja de esa cajera (solo
+    /// administrador y consulta). Sin sesión siempre es la caja general.
+    /// </param>
     [HttpGet("preliminar")]
     public async Task<IActionResult> ObtenerPreliminar(
         [FromQuery] DateOnly fecha,
+        [FromQuery] string? caja,
         CancellationToken cancellationToken)
     {
         if (fecha == default)
@@ -35,12 +43,26 @@ public sealed class ArqueoDiarioController : ControllerBase
             });
         }
 
-        var calculo = await CalcularAsync(fecha, cancellationToken);
+        var (cajeroId, cajeroNombre, error) = ResolverCaja(caja);
 
-        var cierres = await _db.CierresCaja
+        if (error is not null)
+            return StatusCode(403, new { mensaje = error });
+
+        var filtro = cajeroId == CierreCaja.CajaGeneral ? null : cajeroId;
+        var calculo = await CalcularAsync(fecha, filtro, cancellationToken);
+
+        var cierresDia = await _db.CierresCaja
             .AsNoTracking()
             .Where(c => c.Fecha == fecha)
             .ToListAsync(cancellationToken);
+
+        var cierres = cierresDia.Where(c => c.CajeroId == cajeroId).ToList();
+
+        if (cajeroNombre is null && cajeroId != CierreCaja.CajaGeneral)
+        {
+            cajeroNombre = calculo.Cajas.FirstOrDefault(c => c.CajeroId == cajeroId)?.Nombre ??
+                           cierres.FirstOrDefault()?.CajeroNombre;
+        }
 
         var resumen = calculo.Resumen
             .Select(r =>
@@ -103,10 +125,42 @@ public sealed class ArqueoDiarioController : ControllerBase
             });
         }
 
+        // Cajas del día (de cada cajera), para que el administrador vea quién ya cerró.
+        var cajasDia = calculo.Cajas
+            .Select(c => c.CajeroId)
+            .Union(cierresDia.Where(x => !x.EsGeneral).Select(x => x.CajeroId))
+            .Distinct()
+            .Select(id =>
+            {
+                var datos = calculo.Cajas.FirstOrDefault(c => c.CajeroId == id);
+                var cierresCaja = cierresDia.Where(x => x.CajeroId == id).ToList();
+                var monedasConMovimiento = datos?.Monedas ?? new List<Guid>();
+
+                return new
+                {
+                    cajeroId = id,
+                    nombre = datos?.Nombre ?? cierresCaja.FirstOrDefault()?.CajeroNombre ?? "Sin nombre",
+                    cantidadCobros = datos?.CantidadCobros ?? 0,
+                    cantidadEgresos = datos?.CantidadEgresos ?? 0,
+                    totales = datos?.Totales.Select(t => new { moneda = t.Moneda, total = t.Total, efectivo = t.Efectivo }),
+                    cerrada = monedasConMovimiento.Count > 0
+                        ? monedasConMovimiento.All(m => cierresCaja.Any(x => x.MonedaId == m))
+                        : cierresCaja.Count > 0,
+                    esMia = id == IdUsuario()
+                };
+            })
+            .OrderBy(c => c.nombre)
+            .ToList();
+
         return Ok(new
         {
             fecha = fecha.ToString("yyyy-MM-dd"),
             zonaHoraria = "Bolivia UTC-04:00",
+            caja = cajeroId,
+            cajaNombre = cajeroId == CierreCaja.CajaGeneral ? "Caja general (todo el día)" : cajeroNombre,
+            esCajaGeneral = cajeroId == CierreCaja.CajaGeneral,
+            cajas = cajasDia,
+            sinCajera = calculo.CantidadSinCajera,
             estado = cierres.Count > 0 ? "Con cierre" : "Preliminar",
             cantidadPagosValidos = calculo.CantidadValidos,
             cantidadIncidencias = calculo.Incidencias.Sum(i => i.Cantidad),
@@ -132,7 +186,8 @@ public sealed class ArqueoDiarioController : ControllerBase
         Guid MonedaId,
         decimal EfectivoContado,
         string Responsable,
-        string? Observacion);
+        string? Observacion,
+        string? Caja = null);
 
     [HttpPost("cierres")]
     public async Task<IActionResult> RegistrarCierre(
@@ -151,17 +206,28 @@ public sealed class ArqueoDiarioController : ControllerBase
             return BadRequest(new { mensaje = "No se puede cerrar una fecha futura." });
         }
 
+        // Cada cajera cierra su propia caja. El administrador puede cerrar
+        // la suya o la caja general (todo el día). Sin sesión: caja general.
+        var (cajeroId, cajeroNombre, error) = ResolverCaja(solicitud.Caja, paraCerrar: true);
+
+        if (error is not null)
+            return StatusCode(403, new { mensaje = error });
+
         var yaCerrado = await _db.CierresCaja.AnyAsync(c =>
             c.Fecha == solicitud.Fecha &&
-            c.MonedaId == solicitud.MonedaId, cancellationToken);
+            c.MonedaId == solicitud.MonedaId &&
+            c.CajeroId == cajeroId, cancellationToken);
 
         if (yaCerrado)
         {
-            return Conflict(new { mensaje = "La caja de esa fecha y moneda ya fue cerrada." });
+            return Conflict(new { mensaje = MensajeYaCerrada(cajeroId) });
         }
 
         // El servidor recalcula los totales: no se confía en el cliente.
-        var calculo = await CalcularAsync(solicitud.Fecha, cancellationToken);
+        var calculo = await CalcularAsync(
+            solicitud.Fecha,
+            cajeroId == CierreCaja.CajaGeneral ? null : cajeroId,
+            cancellationToken);
 
         var resumen = calculo.Resumen.FirstOrDefault(r => r.MonedaId == solicitud.MonedaId);
 
@@ -203,7 +269,9 @@ public sealed class ArqueoDiarioController : ControllerBase
             solicitud.Observacion,
             DateTimeOffset.UtcNow,
             resumen?.EgresosEfectivo ?? 0,
-            resumen?.CantidadEgresos ?? 0);
+            resumen?.CantidadEgresos ?? 0,
+            cajeroId,
+            cajeroNombre);
 
         _db.CierresCaja.Add(cierre);
 
@@ -214,8 +282,13 @@ public sealed class ArqueoDiarioController : ControllerBase
         catch (DbUpdateException)
         {
             // Dos cajas cerrando al mismo tiempo: gana la primera.
-            return Conflict(new { mensaje = "La caja de esa fecha y moneda ya fue cerrada." });
+            return Conflict(new { mensaje = MensajeYaCerrada(cajeroId) });
         }
+
+        HttpContext.Detalle(
+            $"{(cierre.EsGeneral ? "Caja general" : "Caja de " + (cierre.CajeroNombre ?? cierre.Responsable))} · " +
+            $"{cierre.Fecha:dd/MM/yyyy} · {moneda.Codigo} · Esperado {Cambios.Monto(cierre.EfectivoEsperado, moneda.Codigo)} · " +
+            $"Contado {Cambios.Monto(cierre.EfectivoContado, moneda.Codigo)} · Diferencia {Cambios.Monto(cierre.Diferencia, moneda.Codigo)}");
 
         return Ok(AResumenCierre(cierre, moneda.Codigo));
     }
@@ -243,10 +316,17 @@ public sealed class ArqueoDiarioController : ControllerBase
             .AsNoTracking()
             .ToDictionaryAsync(m => m.Id, m => m.Codigo, cancellationToken);
 
-        var cierres = await _db.CierresCaja
+        var consulta = _db.CierresCaja
             .AsNoTracking()
-            .Where(c => c.Fecha >= inicio && c.Fecha <= fin)
+            .Where(c => c.Fecha >= inicio && c.Fecha <= fin);
+
+        // La cajera ve sus propios cierres; administración y consulta, todos.
+        if (User.IsInRole(SeguridadUsuarios.RolCajero) && IdUsuario() is { } mio)
+            consulta = consulta.Where(c => c.CajeroId == mio);
+
+        var cierres = await consulta
             .OrderByDescending(c => c.Fecha)
+            .ThenBy(c => c.CajeroNombre)
             .ThenBy(c => c.MonedaId)
             .ToListAsync(cancellationToken);
 
@@ -278,8 +358,57 @@ public sealed class ArqueoDiarioController : ControllerBase
         diferencia = c.Diferencia,
         responsable = c.Responsable,
         observacion = c.Observacion,
-        fechaRegistro = c.FechaRegistroUtc
+        fechaRegistro = c.FechaRegistroUtc,
+        caja = c.CajeroId,
+        cajaNombre = c.EsGeneral ? "Caja general" : c.CajeroNombre ?? c.Responsable,
+        esCajaGeneral = c.EsGeneral
     };
+
+    // =============================================================
+    // DE QUIÉN ES LA CAJA
+    // =============================================================
+
+    /// <summary>Identificador de quien consulta (usuario o «administrador»); null sin sesión.</summary>
+    private string? IdUsuario() => SeguridadUsuarios.IdResponsable(User);
+
+    private static string MensajeYaCerrada(string cajeroId) =>
+        cajeroId == CierreCaja.CajaGeneral
+            ? "La caja general de esa fecha y moneda ya fue cerrada."
+            : "Esta caja ya fue cerrada para esa fecha y moneda.";
+
+    private (string CajeroId, string? Nombre, string? Error) ResolverCaja(string? caja, bool paraCerrar = false)
+    {
+        var mio = IdUsuario();
+        var nombre = User.Identity?.IsAuthenticated == true ? User.Identity.Name : null;
+        caja = string.IsNullOrWhiteSpace(caja) ? "mia" : caja.Trim();
+
+        // Sin sesión (instaladores anteriores): como antes, la caja de todo el día.
+        if (mio is null)
+            return (CierreCaja.CajaGeneral, null, null);
+
+        if (caja.Equals("mia", StringComparison.OrdinalIgnoreCase) || caja == mio)
+            return (mio, nombre, null);
+
+        var esAdmin = User.IsInRole(SeguridadUsuarios.RolAdministrador);
+        var puedeVer = esAdmin || User.IsInRole(SeguridadUsuarios.RolConsulta);
+
+        if (caja.Equals(CierreCaja.CajaGeneral, StringComparison.OrdinalIgnoreCase))
+        {
+            if (paraCerrar ? !esAdmin : !puedeVer)
+                return (mio, nombre, "Solo el administrador puede ver o cerrar la caja general.");
+
+            return (CierreCaja.CajaGeneral, null, null);
+        }
+
+        // La caja de otra cajera: se puede ver, pero la cierra ella misma.
+        if (paraCerrar)
+            return (mio, nombre, "Cada cajera cierra su propia caja.");
+
+        if (!puedeVer)
+            return (mio, nombre, "Solo puedes ver tu propia caja.");
+
+        return (caja.Length > 64 ? caja[..64] : caja, null, null);
+    }
 
     private sealed record ResumenMoneda(
         Guid MonedaId,
@@ -302,12 +431,25 @@ public sealed class ArqueoDiarioController : ControllerBase
 
     private sealed record Incidencia(string Moneda, int Cantidad, decimal Monto);
 
+    private sealed record TotalCaja(string Moneda, decimal Total, decimal Efectivo);
+
+    private sealed record CajaDia(
+        string CajeroId,
+        string Nombre,
+        int CantidadCobros,
+        int CantidadEgresos,
+        List<TotalCaja> Totales,
+        List<Guid> Monedas);
+
     private sealed record Calculo(
         List<ResumenMoneda> Resumen,
         List<Incidencia> Incidencias,
-        int CantidadValidos);
+        int CantidadValidos,
+        List<CajaDia> Cajas,
+        int CantidadSinCajera);
 
-    private async Task<Calculo> CalcularAsync(DateOnly fecha, CancellationToken ct)
+    /// <param name="cajeroId">null: todo el día. Si no, solo lo que registró esa cajera.</param>
+    private async Task<Calculo> CalcularAsync(DateOnly fecha, string? cajeroId, CancellationToken ct)
     {
         // Horario de Bolivia: inicio inclusivo, día siguiente exclusivo.
         var inicio = new DateTimeOffset(fecha.ToDateTime(TimeOnly.MinValue), ZonaBolivia);
@@ -330,8 +472,51 @@ public sealed class ArqueoDiarioController : ControllerBase
                 pago.Estado,
                 Moneda = moneda.Codigo,
                 moneda.Simbolo,
-                EstadoRecibo = recibo == null ? (EstadoRecibo?)null : recibo.Estado
+                EstadoRecibo = recibo == null ? (EstadoRecibo?)null : recibo.Estado,
+                CajeroId = recibo == null ? null : recibo.RegistradoPorId,
+                Cajero = recibo == null ? null : recibo.RegistradoPor
             }).ToListAsync(ct);
+
+        var egresosDia = await (
+                from e in _db.Egresos.AsNoTracking()
+                join m in _db.Monedas.AsNoTracking() on e.MonedaId equals m.Id
+                where e.Fecha == fecha && !e.Anulado && e.FormaPago.ToLower() == "efectivo"
+                select new { e.MonedaId, m.Codigo, m.Simbolo, e.Monto, e.RegistradoPorId, e.RegistradoPor })
+            .ToListAsync(ct);
+
+        // Cajas de cada cajera (cobros y egresos con usuario identificado).
+        var validosDia = registros
+            .Where(x => x.Estado == EstadoPago.Registrado && x.EstadoRecibo == EstadoRecibo.Emitido)
+            .ToList();
+
+        var cajas = validosDia.Where(x => x.CajeroId != null).Select(x => x.CajeroId!)
+            .Union(egresosDia.Where(x => x.RegistradoPorId != null).Select(x => x.RegistradoPorId!))
+            .Distinct()
+            .Select(id => new CajaDia(
+                id,
+                validosDia.Where(x => x.CajeroId == id).Select(x => x.Cajero).LastOrDefault(n => !string.IsNullOrWhiteSpace(n)) ??
+                egresosDia.Where(x => x.RegistradoPorId == id).Select(x => x.RegistradoPor).LastOrDefault(n => !string.IsNullOrWhiteSpace(n)) ??
+                "Sin nombre",
+                validosDia.Count(x => x.CajeroId == id),
+                egresosDia.Count(x => x.RegistradoPorId == id),
+                validosDia.Where(x => x.CajeroId == id)
+                    .GroupBy(x => x.Moneda)
+                    .Select(g => new TotalCaja(g.Key, g.Sum(x => x.Monto),
+                        g.Where(x => x.FormaPago == FormaPago.Efectivo).Sum(x => x.Monto)))
+                    .ToList(),
+                validosDia.Where(x => x.CajeroId == id).Select(x => x.MonedaId)
+                    .Union(egresosDia.Where(x => x.RegistradoPorId == id).Select(x => x.MonedaId))
+                    .Distinct()
+                    .ToList()))
+            .ToList();
+
+        var sinCajera = validosDia.Count(x => x.CajeroId == null);
+
+        if (cajeroId is not null)
+        {
+            registros = registros.Where(x => x.CajeroId == cajeroId).ToList();
+            egresosDia = egresosDia.Where(x => x.RegistradoPorId == cajeroId).ToList();
+        }
 
         var validos = registros
             .Where(x => x.Estado == EstadoPago.Registrado && x.EstadoRecibo == EstadoRecibo.Emitido)
@@ -362,13 +547,10 @@ public sealed class ArqueoDiarioController : ControllerBase
             .ToList();
 
         // Egresos (gastos) pagados en efectivo ese día: salen de la caja.
-        var egresos = await (
-                from e in _db.Egresos.AsNoTracking()
-                join m in _db.Monedas.AsNoTracking() on e.MonedaId equals m.Id
-                where e.Fecha == fecha && !e.Anulado && e.FormaPago.ToLower() == "efectivo"
-                group e by new { e.MonedaId, m.Codigo, m.Simbolo } into g
-                select new { g.Key.MonedaId, g.Key.Codigo, g.Key.Simbolo, Total = g.Sum(x => x.Monto), Cantidad = g.Count() })
-            .ToListAsync(ct);
+        var egresos = egresosDia
+            .GroupBy(e => new { e.MonedaId, e.Codigo, e.Simbolo })
+            .Select(g => new { g.Key.MonedaId, g.Key.Codigo, g.Key.Simbolo, Total = g.Sum(x => x.Monto), Cantidad = g.Count() })
+            .ToList();
 
         foreach (var eg in egresos)
         {
@@ -384,6 +566,6 @@ public sealed class ArqueoDiarioController : ControllerBase
             .ThenBy(x => x.Moneda)
             .ToList();
 
-        return new Calculo(resumen, incidencias, validos.Count);
+        return new Calculo(resumen, incidencias, validos.Count, cajas, sinCajera);
     }
 }

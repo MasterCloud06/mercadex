@@ -86,13 +86,35 @@ public sealed class Recibo : Entity
     /// <summary>Usuario que registró el cobro (vacío en recibos anteriores al inicio de sesión).</summary>
     public string? RegistradoPor { get; private set; }
 
-    public void AsignarRegistradoPor(string? usuario)
+    /// <summary>Cargo de quien emitió el recibo al momento de emitirlo (por ejemplo, Cajera).</summary>
+    public string? CargoEmisor { get; private set; }
+
+    /// <summary>
+    /// Identificador de quien registró el cobro (usuario de la base o
+    /// "administrador" para el principal). Sirve para el cierre por cajera;
+    /// vacío en recibos anteriores a la 1.6.3.
+    /// </summary>
+    public string? RegistradoPorId { get; private set; }
+
+    public void AsignarRegistradoPor(string? usuario, string? cargo = null, string? usuarioId = null)
     {
+        if (!string.IsNullOrWhiteSpace(usuarioId))
+        {
+            var id = usuarioId.Trim();
+            RegistradoPorId = id.Length > 64 ? id[..64] : id;
+        }
+
         if (string.IsNullOrWhiteSpace(usuario))
             return;
 
         var limpio = usuario.Trim();
         RegistradoPor = limpio.Length > 120 ? limpio[..120] : limpio;
+
+        if (!string.IsNullOrWhiteSpace(cargo))
+        {
+            var c = cargo.Trim();
+            CargoEmisor = c.Length > 80 ? c[..80] : c;
+        }
     }
 
     public IReadOnlyCollection<DetalleRecibo> Detalles =>

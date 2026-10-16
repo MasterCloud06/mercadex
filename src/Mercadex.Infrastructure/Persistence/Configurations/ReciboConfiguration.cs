@@ -35,6 +35,12 @@ public sealed class ReciboConfiguration :
 builder.Property(x => x.RegistradoPor)
             .HasMaxLength(120);
 
+        builder.Property(x => x.CargoEmisor)
+            .HasMaxLength(80);
+
+        builder.Property(x => x.RegistradoPorId)
+            .HasMaxLength(64);
+
         builder.Property(x => x.AnuladoPor)
     .HasMaxLength(150);
 

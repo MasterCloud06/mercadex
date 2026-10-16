@@ -104,6 +104,15 @@ public static class SeguridadUsuarios
         return CryptographicOperations.FixedTimeEquals(a, b);
     }
 
+    /// <summary>
+    /// Identificador de quien registra un movimiento de caja (usuario de la
+    /// base o "administrador"); null sin sesión o con una sesión de socio.
+    /// </summary>
+    public static string? IdResponsable(ClaimsPrincipal usuario) =>
+        usuario.Identity?.IsAuthenticated == true && !usuario.IsInRole(SeguridadApp.RolSocio)
+            ? usuario.FindFirstValue(ClaimTypes.NameIdentifier)
+            : null;
+
     public static string NombreResponsable(ClaimsPrincipal usuario) =>
         usuario.Identity?.IsAuthenticated == true &&
         !string.IsNullOrWhiteSpace(usuario.Identity.Name)

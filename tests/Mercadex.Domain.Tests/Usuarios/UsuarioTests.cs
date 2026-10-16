@@ -101,4 +101,39 @@ public sealed class UsuarioTests
 
         Assert.Equal("María López", recibo.RegistradoPor);
     }
+
+    [Fact]
+    public void Recibo_guarda_el_cargo_de_quien_lo_emite()
+    {
+        var recibo = new Recibo(
+            2,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Ahora,
+            new[] { new DetalleRecibo(Guid.NewGuid(), Guid.NewGuid(), "Mensualidad", 100m, 2026, 10) });
+
+        recibo.AsignarRegistradoPor("María López", "  Cajera ");
+
+        Assert.Equal("María López", recibo.RegistradoPor);
+        Assert.Equal("Cajera", recibo.CargoEmisor);
+    }
+
+    [Fact]
+    public void Sin_cargo_escrito_el_recibo_usa_el_rol()
+    {
+        var usuario = Nuevo();
+        Assert.Equal(Usuario.TextoRol(usuario.Rol), usuario.CargoParaRecibo);
+
+        usuario.AsignarCargo(" Tesorero ");
+        Assert.Equal("Tesorero", usuario.CargoParaRecibo);
+
+        usuario.AsignarCargo("  ");
+        Assert.Null(usuario.Cargo);
+    }
+
+    [Fact]
+    public void Cargo_demasiado_largo_se_rechaza()
+    {
+        Assert.Throws<ArgumentException>(() => Nuevo().AsignarCargo(new string('x', 81)));
+    }
 }

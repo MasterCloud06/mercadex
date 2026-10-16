@@ -20,7 +20,7 @@ public sealed class PermisosPorRolFilter : IAuthorizationFilter
     /// <summary>Controladores con su propia autorización.</summary>
     private static readonly HashSet<string> ConAutorizacionPropia = new(StringComparer.Ordinal)
     {
-        "Auth", "Health", "AppSocios", "PanelCaja", "Usuarios"
+        "Auth", "Health", "AppSocios", "PanelCaja", "Usuarios", "RegistroCambios"
     };
 
     /// <summary>Lo que el cajero puede registrar.</summary>

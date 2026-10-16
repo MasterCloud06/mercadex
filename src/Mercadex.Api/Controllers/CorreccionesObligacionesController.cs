@@ -1,3 +1,4 @@
+using Mercadex.Api.Seguridad;
 using System.Data;
 using System.Security.Claims;
 using Mercadex.Domain.Cobranza;
@@ -352,6 +353,24 @@ public sealed class CorreccionesObligacionesController : ControllerBase
         await _db.SaveChangesAsync(cancellationToken);
 
         await transaccion.CommitAsync(cancellationToken);
+
+        var datos = await (
+                from u in _db.UnidadesComerciales.AsNoTracking()
+                where u.Id == obligacion.UnidadComercialId
+                select u.Codigo)
+            .FirstOrDefaultAsync(cancellationToken);
+        var concepto = await _db.ConceptosCobro.AsNoTracking()
+            .Where(c => c.Id == obligacion.ConceptoCobroId).Select(c => c.Nombre)
+            .FirstOrDefaultAsync(cancellationToken);
+        var moneda = await _db.Monedas.AsNoTracking()
+            .Where(m => m.Id == obligacion.MonedaId).Select(m => m.Codigo)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        HttpContext.Detalle(
+            $"Caseta {datos} · {concepto}" +
+            (obligacion.PeriodoMes is { } mes && obligacion.PeriodoAnio is { } anio ? $" {mes:00}/{anio}" : "") +
+            $" · de {Mercadex.Api.Seguridad.Cambios.Monto(anterior, moneda ?? "")} a " +
+            $"{Mercadex.Api.Seguridad.Cambios.Monto(obligacion.Monto, moneda ?? "")} · Motivo: {cambio.Motivo}");
 
         return Ok(new
         {

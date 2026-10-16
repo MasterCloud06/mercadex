@@ -56,7 +56,9 @@ public sealed class CajaService : ICajaService
     
 public async Task<ResultadoCobroDto> ProcesarCobroAsync(
     ProcesarCobroDto dto,
-    string? registradoPor = null)
+    string? registradoPor = null,
+    string? cargoEmisor = null,
+    string? registradoPorId = null)
 {
     if (dto.Items is null)
     {
@@ -153,7 +155,7 @@ public async Task<ResultadoCobroDto> ProcesarCobroAsync(
             dto.Referencia);
 
         // Quién registró el cobro (usuario con sesión iniciada).
-        resultado.Recibo.AsignarRegistradoPor(registradoPor);
+        resultado.Recibo.AsignarRegistradoPor(registradoPor, cargoEmisor, registradoPorId);
 
         await _pagoRepository.GuardarAsync(resultado.Pago);
 
@@ -190,7 +192,8 @@ public async Task<ResultadoCobroDto> ProcesarCobroAsync(
                         d.PeriodoAnio,
                         d.PeriodoMes)))
             {
-                RegistradoPor = resultado.Recibo.RegistradoPor
+                RegistradoPor = resultado.Recibo.RegistradoPor,
+                CargoEmisor = resultado.Recibo.CargoEmisor
             }
         );
     }

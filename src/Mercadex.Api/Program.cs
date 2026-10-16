@@ -15,6 +15,8 @@ builder.Services.AddControllers(opciones =>
 {
     // Permisos por rol (Administrador, Cajero, Consulta).
     opciones.Filters.Add<Mercadex.Api.Seguridad.PermisosPorRolFilter>();
+    // Registro de cambios: quién hizo qué y cuándo.
+    opciones.Filters.Add<Mercadex.Api.Seguridad.RegistroCambiosFilter>();
 });
 
 builder.Services.AddOpenApi();

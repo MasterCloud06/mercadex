@@ -103,6 +103,10 @@ public sealed class UsuariosController : ControllerBase
         _db.Usuarios.Add(usuario);
         await _db.SaveChangesAsync(ct);
 
+        HttpContext.Referencia(usuario.Id);
+        HttpContext.Detalle($"{usuario.NombreCompleto} («{usuario.NombreUsuario}») · Rol {usuario.Rol}" +
+                            (string.IsNullOrWhiteSpace(usuario.Cargo) ? "" : $" · Cargo {usuario.Cargo}"));
+
         return Ok(new
         {
             id = usuario.Id,
@@ -129,6 +133,9 @@ public sealed class UsuariosController : ControllerBase
         if (usuario.Rol == RolUsuario.Administrador && rol != RolUsuario.Administrador && EsUnoMismo(usuario))
             return BadRequest(new { mensaje = "No puedes quitarte el rol de administrador a ti mismo." });
 
+        var antes = $"{usuario.NombreCompleto} · Rol {usuario.Rol}" +
+                    (string.IsNullOrWhiteSpace(usuario.Cargo) ? "" : $" · Cargo {usuario.Cargo}");
+
         try
         {
             usuario.Actualizar(r?.NombreCompleto ?? "", rol);
@@ -140,6 +147,11 @@ public sealed class UsuariosController : ControllerBase
         }
 
         await _db.SaveChangesAsync(ct);
+
+        var despues = $"{usuario.NombreCompleto} · Rol {usuario.Rol}" +
+                      (string.IsNullOrWhiteSpace(usuario.Cargo) ? "" : $" · Cargo {usuario.Cargo}");
+        HttpContext.Detalle(antes == despues ? $"«{usuario.NombreUsuario}» sin cambios" : $"«{usuario.NombreUsuario}»: antes {antes} → ahora {despues}");
+
         return Ok(new { mensaje = "Usuario actualizado." });
     }
 
@@ -160,6 +172,7 @@ public sealed class UsuariosController : ControllerBase
         var temporal = SeguridadUsuarios.NuevaContrasenaTemporal();
         usuario.RestablecerContrasena(SeguridadApp.Huella(temporal));
         await _db.SaveChangesAsync(ct);
+        HttpContext.Detalle($"{usuario.NombreCompleto} («{usuario.NombreUsuario}»)");
 
         return Ok(new
         {
@@ -184,6 +197,7 @@ public sealed class UsuariosController : ControllerBase
 
         usuario.Desactivar();
         await _db.SaveChangesAsync(ct);
+        HttpContext.Detalle($"{usuario.NombreCompleto} («{usuario.NombreUsuario}»)");
         return Ok(new { mensaje = $"{usuario.NombreCompleto} ya no puede ingresar." });
     }
 
@@ -199,6 +213,7 @@ public sealed class UsuariosController : ControllerBase
 
         usuario.Activar();
         await _db.SaveChangesAsync(ct);
+        HttpContext.Detalle($"{usuario.NombreCompleto} («{usuario.NombreUsuario}»)");
         return Ok(new { mensaje = $"{usuario.NombreCompleto} puede volver a ingresar." });
     }
 

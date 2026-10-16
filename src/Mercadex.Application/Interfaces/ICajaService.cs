@@ -19,5 +19,6 @@ public interface ICajaService
     Task<ResultadoCobroDto> ProcesarCobroAsync(
         ProcesarCobroDto dto,
         string? registradoPor = null,
-        string? cargoEmisor = null);
+        string? cargoEmisor = null,
+        string? registradoPorId = null);
 }

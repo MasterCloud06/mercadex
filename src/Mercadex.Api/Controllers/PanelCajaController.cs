@@ -383,13 +383,16 @@ public sealed class PanelCajaController : ControllerBase
             Referencia: pago.Referencia,
             Items: conceptos.Select(c => new ItemCobroDto(c.Id, c.Nombre)).ToList()),
             registradoPor: revisadoPor,
-            cargoEmisor: cargo);
+            cargoEmisor: cargo,
+            registradoPorId: SeguridadUsuarios.IdResponsable(User));
 
         // Recargar: el cobro usó su propia transacción.
         _db.ChangeTracker.Clear();
         pago = await _db.PagosReportados.FirstAsync(x => x.Id == id, ct);
         pago.Aprobar(revisadoPor, resultado.Recibo.Id, resultado.Recibo.Numero, DateTimeOffset.UtcNow);
         await _db.SaveChangesAsync(ct);
+
+        HttpContext.Detalle(await DetallePagoAsync(pago, ct) + $" · Recibo N.º {resultado.Recibo.Numero}");
 
         return Ok(new
         {
@@ -414,7 +417,22 @@ public sealed class PanelCajaController : ControllerBase
         pago.Rechazar(rechazadoPor, r.Motivo ?? "", DateTimeOffset.UtcNow);
         await _db.SaveChangesAsync(ct);
 
+        HttpContext.Detalle(await DetallePagoAsync(pago, ct) + $" · Motivo: {r.Motivo}");
+
         return Ok(new { mensaje = "Pago rechazado. El socio verá el motivo en la app." });
+    }
+
+    /// <summary>«Socio · Caseta · monto · transacción» para el registro de cambios.</summary>
+    private async Task<string> DetallePagoAsync(PagoReportado pago, CancellationToken ct)
+    {
+        var socio = await _db.Socios.AsNoTracking().Where(s => s.Id == pago.SocioId)
+            .Select(s => s.Nombres + " " + s.Apellidos).FirstOrDefaultAsync(ct);
+        var caseta = await _db.UnidadesComerciales.AsNoTracking().Where(u => u.Id == pago.UnidadComercialId)
+            .Select(u => u.Codigo).FirstOrDefaultAsync(ct);
+        var moneda = await _db.Monedas.AsNoTracking().Where(m => m.Id == pago.MonedaId)
+            .Select(m => m.Codigo).FirstOrDefaultAsync(ct);
+
+        return $"{socio} · Caseta {caseta} · {Cambios.Monto(pago.Monto, moneda ?? "")} · Transacción {pago.Referencia}";
     }
 
     // ===================================================== QR DE COBRO

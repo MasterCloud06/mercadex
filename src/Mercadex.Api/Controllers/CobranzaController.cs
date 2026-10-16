@@ -37,6 +37,39 @@ public sealed class CobranzaController : ControllerBase
     // DEUDAS REGISTRADAS
     // =====================================================================
 
+    /// <summary>
+    /// Cargos del mes en curso (hora de Bolivia), para recordar al
+    /// administrador que genere la mensualidad si todavía no lo hizo.
+    /// </summary>
+    [HttpGet("estado-mes")]
+    public async Task<IActionResult> EstadoMes(CancellationToken ct)
+    {
+        var hoy = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(-4));
+        int anio = hoy.Year, mes = hoy.Month;
+
+        var porConcepto = await (
+                from o in _db.Obligaciones.AsNoTracking()
+                join c in _db.ConceptosCobro.AsNoTracking() on o.ConceptoCobroId equals c.Id
+                where o.PeriodoAnio == anio && o.PeriodoMes == mes && o.Estado != EstadoObligacion.Anulada
+                group o by c.Nombre into g
+                select new { concepto = g.Key, casetas = g.Select(x => x.UnidadComercialId).Distinct().Count() })
+            .ToListAsync(ct);
+
+        var activas = await _db.UnidadesComerciales.AsNoTracking().CountAsync(u => u.Activa, ct);
+
+        Response.Headers["Cache-Control"] = "no-store";
+
+        return Ok(new
+        {
+            anio,
+            mes,
+            dia = hoy.Day,
+            unidadesActivas = activas,
+            cargoGenerado = porConcepto.Count > 0,
+            porConcepto = porConcepto.OrderByDescending(x => x.casetas).ToList()
+        });
+    }
+
     [HttpGet("deudas")]
     public async Task<IActionResult> Deudas(
         [FromQuery] string? caseta,

@@ -231,6 +231,15 @@ public sealed class PanelCajaController : ControllerBase
             .ToListAsync(ct);
 
         var todasIds = filas.SelectMany(f => f.ObligacionIds).Distinct().ToList();
+
+        // Deudas que ya no están pendientes (por ejemplo, se cobraron en ventanilla
+        // mientras el pago QR esperaba revisión): ese pago ya no se puede aprobar.
+        var yaNoPendientes = (await _db.Obligaciones.AsNoTracking()
+                .Where(o => todasIds.Contains(o.Id) && o.Estado != Mercadex.Domain.Cobranza.EstadoObligacion.Pendiente)
+                .Select(o => o.Id)
+                .ToListAsync(ct))
+            .ToHashSet();
+
         var conceptos = await (
                 from o in _db.Obligaciones.AsNoTracking()
                 join c in _db.ConceptosCobro.AsNoTracking() on o.ConceptoCobroId equals c.Id
@@ -258,6 +267,9 @@ public sealed class PanelCajaController : ControllerBase
             motivoRechazo = f.MotivoRechazo,
             revisadoPor = f.RevisadoPor,
             numeroRecibo = f.NumeroRecibo,
+            deudasYaCobradas = f.Estado == EstadoPagoReportado.Pendiente
+                ? f.ObligacionIds.Count(yaNoPendientes.Contains)
+                : 0,
             deudas = string.Join(", ", f.ObligacionIds.Select(id =>
                 conceptos.TryGetValue(id, out var c)
                     ? c.Nombre + (c.PeriodoMes.HasValue ? $" {c.PeriodoMes:00}/{c.PeriodoAnio}" : "")
@@ -284,6 +296,35 @@ public sealed class PanelCajaController : ControllerBase
             masReciente = pendientes.Count == 0 ? (DateTimeOffset?)null : pendientes.Max(p => p.FechaReporteUtc),
             ids = pendientes.Select(p => p.Id)
         });
+    }
+
+    /// <summary>
+    /// Pagos QR en revisión de una caseta, con las deudas que cubren. Lo usa la
+    /// pantalla Cobrar para avisar y no cobrar dos veces lo mismo.
+    /// </summary>
+    [Authorize(Roles = CajaQr)]
+    [HttpGet("api/panel/pagos/en-revision")]
+    public async Task<IActionResult> EnRevision([FromQuery] Guid unidadId, CancellationToken ct)
+    {
+        var monedas = await _db.Monedas.AsNoTracking().ToDictionaryAsync(m => m.Id, m => m.Codigo, ct);
+
+        var pagos = await _db.PagosReportados.AsNoTracking()
+            .Where(p => p.UnidadComercialId == unidadId && p.Estado == EstadoPagoReportado.Pendiente)
+            .OrderBy(p => p.FechaReporteUtc)
+            .Select(p => new { p.Id, p.Monto, p.MonedaId, p.Referencia, p.FechaReporteUtc, p.ObligacionIds })
+            .ToListAsync(ct);
+
+        Response.Headers["Cache-Control"] = "no-store";
+
+        return Ok(pagos.Select(p => new
+        {
+            id = p.Id,
+            moneda = monedas.GetValueOrDefault(p.MonedaId, "?"),
+            monto = p.Monto,
+            referencia = p.Referencia,
+            fecha = p.FechaReporteUtc.ToOffset(ZonaBolivia),
+            obligacionIds = p.ObligacionIds
+        }));
     }
 
     [Authorize(Roles = CajaQr)]

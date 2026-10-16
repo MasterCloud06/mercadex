@@ -181,10 +181,78 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.ToTable("pagos_reportados", (string)null);
                 });
 
+            modelBuilder.Entity("Mercadex.Domain.Auditoria.RegistroCambio", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Accion")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Detalle")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset>("FechaUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Ip")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)");
+
+                    b.Property<string>("Modulo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("Origen")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Referencia")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Rol")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Usuario")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("UsuarioId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FechaUtc");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("registro_cambios", (string)null);
+                });
+
             modelBuilder.Entity("Mercadex.Domain.Caja.CierreCaja", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("CajeroId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasDefaultValue("general");
+
+                    b.Property<string>("CajeroNombre")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
 
                     b.Property<int>("CantidadEfectivo")
                         .HasColumnType("integer");
@@ -251,7 +319,7 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("MonedaId");
 
-                    b.HasIndex("Fecha", "MonedaId")
+                    b.HasIndex("Fecha", "MonedaId", "CajeroId")
                         .IsUnique();
 
                     b.ToTable("cierres_caja", (string)null);
@@ -435,6 +503,10 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.Property<string>("RegistradoPor")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
+
+                    b.Property<string>("RegistradoPorId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<Guid>("UnidadComercialId")
                         .HasColumnType("uuid");
@@ -726,6 +798,10 @@ namespace Mercadex.Infrastructure.Persistence.Migrations
                     b.Property<string>("RegistradoPor")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
+
+                    b.Property<string>("RegistradoPorId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.HasKey("Id");
 

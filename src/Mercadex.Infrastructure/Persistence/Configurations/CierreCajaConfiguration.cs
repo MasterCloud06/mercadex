@@ -40,8 +40,16 @@ public sealed class CierreCajaConfiguration :
             .HasForeignKey(x => x.MonedaId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Un solo cierre por día y moneda.
-        builder.HasIndex(x => new { x.Fecha, x.MonedaId }).IsUnique();
+        builder.Property(x => x.CajeroId)
+            .HasMaxLength(64)
+            .IsRequired()
+            .HasDefaultValue(CierreCaja.CajaGeneral);
+
+        builder.Property(x => x.CajeroNombre).HasMaxLength(120);
+
+        // Un solo cierre por día, moneda y caja (cada cajera la suya).
+        builder.HasIndex(x => new { x.Fecha, x.MonedaId, x.CajeroId }).IsUnique();
+        builder.Ignore(x => x.EsGeneral);
         builder.Property(x => x.EgresosEfectivo).HasPrecision(18, 2);
         builder.Ignore(x => x.EfectivoEsperado);
     }

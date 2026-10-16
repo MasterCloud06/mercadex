@@ -89,8 +89,21 @@ public sealed class Recibo : Entity
     /// <summary>Cargo de quien emitió el recibo al momento de emitirlo (por ejemplo, Cajera).</summary>
     public string? CargoEmisor { get; private set; }
 
-    public void AsignarRegistradoPor(string? usuario, string? cargo = null)
+    /// <summary>
+    /// Identificador de quien registró el cobro (usuario de la base o
+    /// "administrador" para el principal). Sirve para el cierre por cajera;
+    /// vacío en recibos anteriores a la 1.6.3.
+    /// </summary>
+    public string? RegistradoPorId { get; private set; }
+
+    public void AsignarRegistradoPor(string? usuario, string? cargo = null, string? usuarioId = null)
     {
+        if (!string.IsNullOrWhiteSpace(usuarioId))
+        {
+            var id = usuarioId.Trim();
+            RegistradoPorId = id.Length > 64 ? id[..64] : id;
+        }
+
         if (string.IsNullOrWhiteSpace(usuario))
             return;
 

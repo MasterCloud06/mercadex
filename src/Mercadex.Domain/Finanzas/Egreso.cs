@@ -154,8 +154,19 @@ public sealed class Egreso
     /// <summary>Usuario que anuló el egreso.</summary>
     public string? AnuladoPor { get; private set; }
 
-    public void AsignarRegistradoPor(string? usuario) =>
+    /// <summary>Identificador de quien registró el egreso (cierre por cajera).</summary>
+    public string? RegistradoPorId { get; private set; }
+
+    public void AsignarRegistradoPor(string? usuario, string? usuarioId = null)
+    {
         RegistradoPor = Recortar(usuario);
+
+        if (!string.IsNullOrWhiteSpace(usuarioId))
+        {
+            var id = usuarioId.Trim();
+            RegistradoPorId = id.Length > 64 ? id[..64] : id;
+        }
+    }
 
     private static string? Recortar(string? texto)
     {

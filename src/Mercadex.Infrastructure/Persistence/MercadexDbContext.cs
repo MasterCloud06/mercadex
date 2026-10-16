@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Mercadex.Domain.Finanzas;
 using Mercadex.Domain.AppSocios;
 using Mercadex.Domain.Usuarios;
+using Mercadex.Domain.Auditoria;
 
 namespace Mercadex.Infrastructure.Persistence;
 
@@ -73,6 +74,9 @@ public sealed class MercadexDbContext : DbContext
 
     public DbSet<CierreCaja> CierresCaja =>
         Set<CierreCaja>();
+
+    public DbSet<RegistroCambio> RegistroCambios =>
+        Set<RegistroCambio>();
 
 
     public DbSet<DetalleRecibo> DetallesRecibo =>

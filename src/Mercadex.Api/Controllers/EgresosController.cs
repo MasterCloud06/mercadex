@@ -1,3 +1,4 @@
+using Mercadex.Api.Seguridad;
 using Mercadex.Domain.Finanzas;
 using Mercadex.Infrastructure.Persistence;
 
@@ -266,11 +267,20 @@ public async Task<ActionResult<
 
         // Quién registró el egreso (usuario con sesión iniciada).
         egreso.AsignarRegistradoPor(
-            User.Identity?.IsAuthenticated == true ? User.Identity.Name : null);
+            User.Identity?.IsAuthenticated == true ? User.Identity.Name : null,
+            Mercadex.Api.Seguridad.SeguridadUsuarios.IdResponsable(User));
 
         _context.Egresos.Add(egreso);
 
         await _context.SaveChangesAsync();
+
+        var codigoMoneda = await _context.Monedas.AsNoTracking()
+            .Where(m => m.Id == egreso.MonedaId).Select(m => m.Codigo).FirstOrDefaultAsync();
+        HttpContext.Referencia(egreso.Id);
+        HttpContext.Detalle(
+            $"Egreso N.º {egreso.Numero} · {egreso.Categoria} · {egreso.Concepto} · " +
+            $"{Mercadex.Api.Seguridad.Cambios.Monto(egreso.Monto, codigoMoneda ?? "")} · {egreso.FormaPago} · " +
+            $"Beneficiario: {egreso.Beneficiario}");
 
         var respuesta =
             new EgresoDto
@@ -342,6 +352,12 @@ public async Task<ActionResult<
         }
 
         await _context.SaveChangesAsync();
+
+        var monedaAnulada = await _context.Monedas.AsNoTracking()
+            .Where(m => m.Id == egreso.MonedaId).Select(m => m.Codigo).FirstOrDefaultAsync();
+        HttpContext.Detalle(
+            $"Egreso N.º {egreso.Numero} · {egreso.Concepto} · " +
+            $"{Mercadex.Api.Seguridad.Cambios.Monto(egreso.Monto, monedaAnulada ?? "")} · Motivo: {egreso.MotivoAnulacion}");
 
         return NoContent();
     }

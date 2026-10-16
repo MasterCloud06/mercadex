@@ -3,7 +3,9 @@ using Mercadex.Domain.Common;
 namespace Mercadex.Domain.Caja;
 
 /// <summary>
-/// Cierre de caja (arqueo) de un día y una moneda.
+/// Cierre de caja (arqueo) de un día, una moneda y una caja.
+/// Desde la 1.6.3 cada cajera cierra su propia caja (sus cobros y sus
+/// egresos en efectivo). Los cierres anteriores son de la caja general.
 /// Los subtotales los calcula el servidor a partir de los cobros
 /// válidos; el cajero solo informa el efectivo contado.
 /// Un cierre registrado no se modifica.
@@ -28,7 +30,9 @@ public sealed class CierreCaja : Entity
         string? observacion,
         DateTimeOffset fechaRegistroUtc,
         decimal egresosEfectivo = 0m,
-        int cantidadEgresos = 0)
+        int cantidadEgresos = 0,
+        string? cajeroId = null,
+        string? cajeroNombre = null)
     {
         if (fecha == default)
             throw new ArgumentException("La fecha del cierre es obligatoria.", nameof(fecha));
@@ -83,7 +87,18 @@ public sealed class CierreCaja : Entity
         Responsable = responsable;
         Observacion = observacion;
         FechaRegistroUtc = fechaRegistroUtc;
+
+        cajeroId = cajeroId?.Trim();
+        CajeroId = string.IsNullOrEmpty(cajeroId) ? CajaGeneral : (cajeroId.Length > 64 ? cajeroId[..64] : cajeroId);
+
+        cajeroNombre = cajeroNombre?.Trim();
+        CajeroNombre = string.IsNullOrEmpty(cajeroNombre)
+            ? null
+            : (cajeroNombre.Length > 120 ? cajeroNombre[..120] : cajeroNombre);
     }
+
+    /// <summary>Caja de todo el día (cierres anteriores a la 1.6.3 o sin sesión).</summary>
+    public const string CajaGeneral = "general";
 
     public DateOnly Fecha { get; private set; }
 
@@ -122,4 +137,12 @@ public sealed class CierreCaja : Entity
     public string? Observacion { get; private set; }
 
     public DateTimeOffset FechaRegistroUtc { get; private set; }
+
+    /// <summary>De quién es la caja cerrada: identificador de la cajera o "general".</summary>
+    public string CajeroId { get; private set; } = CajaGeneral;
+
+    /// <summary>Nombre de la cajera dueña de la caja (vacío en la caja general).</summary>
+    public string? CajeroNombre { get; private set; }
+
+    public bool EsGeneral => CajeroId == CajaGeneral;
 }

@@ -1,3 +1,5 @@
+using Mercadex.Api.Seguridad;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using Mercadex.Application.DTOs;
 using Mercadex.Application.Interfaces;
@@ -77,13 +79,25 @@ public sealed class CajaController : ControllerBase
 [HttpPut("recibos/{id:guid}/anular")]
 public async Task<IActionResult> AnularRecibo(
     Guid id,
-    AnularReciboDto dto)
+    AnularReciboDto dto,
+    [FromServices] Mercadex.Infrastructure.Persistence.MercadexDbContext db,
+    CancellationToken ct)
 {
     // Sin inicio de sesion: si no hay usuario autenticado,
     // el comprobante registra "Sistema" como responsable.
     var usuario = string.IsNullOrWhiteSpace(User.Identity?.Name)
         ? "Sistema"
         : User.Identity!.Name!;
+
+    // Datos del recibo para el registro de cambios.
+    var antes = await (
+            from r in db.Recibos.AsNoTracking()
+            join p in db.Pagos.AsNoTracking() on r.PagoId equals p.Id
+            join m in db.Monedas.AsNoTracking() on p.MonedaId equals m.Id
+            join u in db.UnidadesComerciales.AsNoTracking() on r.UnidadComercialId equals u.Id
+            where r.Id == id
+            select new { r.Numero, Caseta = u.Codigo, p.Monto, Moneda = m.Codigo, r.RegistradoPor })
+        .FirstOrDefaultAsync(ct);
 
     var resultado =
         await _service.AnularReciboAsync(
@@ -99,6 +113,14 @@ public async Task<IActionResult> AnularRecibo(
         });
     }
 
+    if (antes is not null)
+    {
+        HttpContext.Detalle(
+            $"Recibo N.º {antes.Numero} · Caseta {antes.Caseta} · {Cambios.Monto(antes.Monto, antes.Moneda)}" +
+            (string.IsNullOrWhiteSpace(antes.RegistradoPor) ? "" : $" · cobrado por {antes.RegistradoPor}") +
+            $" · Motivo: {dto?.Motivo}");
+    }
+
     return NoContent();
 }
 
@@ -112,7 +134,18 @@ public async Task<ActionResult<ResultadoCobroDto>> ProcesarCobro(
     var (registradoPor, cargo) = await Mercadex.Api.Seguridad.EmisorRecibo.ObtenerAsync(User, db, ct);
 
     var resultado = await _service
-        .ProcesarCobroAsync(dto, registradoPor, cargo);
+        .ProcesarCobroAsync(dto, registradoPor, cargo, SeguridadUsuarios.IdResponsable(User));
+
+    var caseta = await db.UnidadesComerciales.AsNoTracking()
+        .Where(u => u.Id == dto.UnidadComercialId).Select(u => u.Codigo).FirstOrDefaultAsync(ct);
+    var moneda = await db.Monedas.AsNoTracking()
+        .Where(m => m.Id == dto.MonedaId).Select(m => m.Codigo).FirstOrDefaultAsync(ct);
+
+    HttpContext.Referencia(resultado.Recibo.Id);
+    HttpContext.Detalle(
+        $"Recibo N.º {resultado.Recibo.Numero} · Caseta {caseta} · {resultado.Pago.FormaPago} · " +
+        $"{Cambios.Monto(resultado.Pago.Monto, moneda ?? "")} · " +
+        string.Join(", ", resultado.Recibo.Detalles.Select(d => d.Concepto)));
 
     return Ok(resultado);
 }

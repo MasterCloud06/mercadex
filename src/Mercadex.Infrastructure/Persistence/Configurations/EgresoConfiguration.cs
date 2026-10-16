@@ -70,6 +70,9 @@ public sealed class EgresoConfiguration
         builder.Property(x => x.RegistradoPor)
             .HasMaxLength(120);
 
+        builder.Property(x => x.RegistradoPorId)
+            .HasMaxLength(64);
+
         builder.Property(x => x.AnuladoPor)
             .HasMaxLength(120);
 

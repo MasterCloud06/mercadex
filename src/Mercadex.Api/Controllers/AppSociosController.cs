@@ -69,6 +69,7 @@ public sealed class AppSociosController : ControllerBase
             {
                 cuenta.Activar(SeguridadApp.Huella(r.Contrasena!), ahora);
                 await _db.SaveChangesAsync(ct);
+                HttpContext.Detalle($"{socio.Nombres} {socio.Apellidos} · carnet {documento}");
                 return Ok(Sesion(cuenta, socio.Nombres, socio.Apellidos));
             }
 

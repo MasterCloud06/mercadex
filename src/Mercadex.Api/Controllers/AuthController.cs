@@ -67,6 +67,11 @@ public sealed class AuthController : ControllerBase
             if (!SeguridadApp.Verificar(contrasena, usuario.ContrasenaHash))
             {
                 usuario.RegistrarFallo(ahora);
+                Cambios.Agregar(_db, HttpContext, "Sesión", "Contraseña incorrecta",
+                    usuario.EstaBloqueado(ahora)
+                        ? $"Usuario «{usuario.NombreUsuario}». Quedó bloqueado por varios intentos fallidos."
+                        : $"Usuario «{usuario.NombreUsuario}»",
+                    usuario: usuario.NombreCompleto, usuarioId: usuario.Id.ToString(), rol: usuario.Rol.ToString());
                 await _db.SaveChangesAsync(ct);
                 return Unauthorized(new { mensaje = MensajeCredenciales });
             }
@@ -75,6 +80,8 @@ public sealed class AuthController : ControllerBase
                 return Unauthorized(new { mensaje = "Tu usuario está desactivado. Habla con el administrador." });
 
             usuario.RegistrarAcceso(ahora);
+            Cambios.Agregar(_db, HttpContext, "Sesión", "Ingresó al sistema", null,
+                usuario: usuario.NombreCompleto, usuarioId: usuario.Id.ToString(), rol: usuario.Rol.ToString());
             await _db.SaveChangesAsync(ct);
 
             var (token, expira) = SeguridadUsuarios.CrearToken(
@@ -120,6 +127,11 @@ public sealed class AuthController : ControllerBase
                 version: null,
                 jwtKey);
 
+            Cambios.Agregar(_db, HttpContext, "Sesión", "Ingresó al sistema", "Administrador principal",
+                usuario: nombre, usuarioId: SeguridadUsuarios.IdAdministradorPrincipal,
+                rol: RolUsuario.Administrador.ToString());
+            await _db.SaveChangesAsync(ct);
+
             return Ok(new
             {
                 token,
@@ -131,6 +143,11 @@ public sealed class AuthController : ControllerBase
                 principal = true
             });
         }
+
+        // Usuario que no existe: también queda registrado (posible intento de adivinar).
+        Cambios.Agregar(_db, HttpContext, "Sesión", "Intento con usuario inexistente",
+            $"Usuario «{(nombreUsuario.Length > 60 ? nombreUsuario[..60] : nombreUsuario)}»");
+        await _db.SaveChangesAsync(ct);
 
         return Unauthorized(new { mensaje = MensajeCredenciales });
     }

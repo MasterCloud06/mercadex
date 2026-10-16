@@ -1,3 +1,4 @@
+using Mercadex.Api.Seguridad;
 using System.Data;
 using System.Security.Claims;
 using Mercadex.Domain.Cobranza;
